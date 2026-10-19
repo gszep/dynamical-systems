@@ -150,6 +150,32 @@ The setup hold is released, and the only remaining waits are for the existing
 workers' focused corrections. No user-only approval blocker exists. Keep the
 bounded overnight heartbeat active.
 
+## First cycle/PDE execution round
+
+- Corrected PDE commit `6646621` integrated as `e0c9cec`; first parent suite
+  returned **194 pass, 1 fail, 1 error**, exit 1. Smoke returned exit 0, but this
+  does not override failing validation. Evidence: `results/validation/initial-patterns.toml`.
+- The full-space translation derivative residual was `6.24e-4`, not `<1e-9`;
+  determine whether undealiased collocation breaks continuous translation symmetry
+  at this resolution or the implementation is wrong. Measure convergence rather
+  than blindly weakening the assertion. The other error is a test argument type.
+- The PDE smoke found two periodic patterns at each sampled parameter, one fold
+  near `r=-0.22501`, and zero new localized patterns; 41 failed seeds are recorded.
+  This is neither a localized-state atlas nor exhaustive discovery.
+- Existing PDE builder is diagnosing these runtime findings and may now execute
+  one-thread numerical checks. No package installation is needed.
+- Corrected cycle commit `ed692d5` integrated as `03c5d59`; parent run completed:
+  **199/200 tests pass**, one unconditional monotonic-error assertion fails.
+  The period-sensitivity, implicit-gradient and final-iterate-consistency
+  regressions pass. Smoke completed ten scenarios, exit 0; see
+  `results/validation/initial-cycles.toml` for measured errors and limitations.
+- Cycle baseline recovered synthetic parameters (error `8.4e-11`, cross-resolution
+  error `3.9e-9`); the failing convergence assertion remains a gate. Existing builder
+  now diagnoses the floating-point/rotational-symmetry floor, retains meaningful
+  order checks, and makes smoke status enforce required positive outcomes.
+- The equilibrium builder continues the reviewed windowed-gradient investigation.
+  Aggregate permitted numerical processes remain three, one per active lane.
+
 ## Known uncertainties / do not repeat as established facts
 
 - Paper and released code use different measure normalizations and target-distance

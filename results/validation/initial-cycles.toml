@@ -1,0 +1,38 @@
+run_id = "20261019T152633.461039Z"
+date_local = "2026-10-20"
+source_commit = "03c5d59"
+runtime = "Julia 1.10.11 macOS x86_64"
+threads_per_process = 1
+scope = "first parent run after static corrections; NOT a passing validation"
+
+[tests]
+exit_code = 1
+wall_seconds = 55.52698547113687
+testset_seconds = 45.1
+passed = 199
+failed = 1
+errored = 0
+failure = "unconditional monotonic decrease assertion across all Stuart-Landau error components, tests.jl:171"
+new_period_sensitivity_checks_passed = true
+new_implicit_gradient_checks_passed = true
+final_iterate_consistency_checks_passed = true
+
+[smoke]
+exit_code = 0
+wall_seconds = 35.7015463039279
+scenarios = 10
+sl_period = 4.833219481671993
+sl_period_absolute_error = 1.461077303588354e-8
+sl_radius_absolute_error = 1.1069153371678908e-9
+sl_radial_multiplier_absolute_error = 1.8392995113081234e-10
+sl_neutral_multiplier_absolute_error = 1.6653345369377348e-15
+noiseless_parameter_error = 8.409850596925363e-11
+cross_resolution_parameter_error = 3.8879986020134025e-9
+implicit_gradient_vs_fd_max_absolute_error = 2.728088865922018e-10
+vdp_implicit_gradient_vs_fd_max_absolute_error = 4.394051789091691e-11
+interpretation = "positive numerical baseline evidence, but a failing convergence assertion and permissive smoke success semantics remain to be resolved"
+
+[followup]
+owner_session = "ses_eab75894bffeWRbWOtuYsp6WQG"
+task = "diagnose convergence floor/rotational symmetry; retain legitimate RK4 order tests; enforce explicit smoke acceptance; rerun tests and smoke"
+no_blind_tolerance_relaxation = true
