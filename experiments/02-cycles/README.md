@@ -240,7 +240,7 @@ values**; they appear only in assertions and reports.
 
 ## Runnable commands
 
-Runtime (pinned by the parent): 
+Runtime (pinned by the parent):
 `/Users/gszep/Documents/repos/dynamical-systems-research-20261019/.tools/julia-1.10.11/bin/julia`
 
 ```sh

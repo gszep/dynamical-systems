@@ -12,7 +12,12 @@
 
 const PKG_DIR = dirname(@__DIR__)
 const REPO_ROOT = dirname(dirname(PKG_DIR))
-const RESULTS_DIR = joinpath(REPO_ROOT, "results", "03-patterns")
+function output_directory(args)
+    isempty(args) && return joinpath(REPO_ROOT, "results", "03-patterns")
+    length(args) == 2 && args[1] == "--out-dir" && return abspath(args[2])
+    error("usage: main.jl [--out-dir DIRECTORY]")
+end
+const RESULTS_DIR = output_directory(ARGS)
 
 t_setup0 = time_ns()
 include(joinpath(PKG_DIR, "src", "SwiftHohenbergPatterns.jl"))
