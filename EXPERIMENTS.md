@@ -63,6 +63,31 @@ Children notify automatically: do not poll them or duplicate their work. A block
 upstream package does not block independent analytic cycle/PDE baselines, but it
 does block claiming end-to-end reproduction of the original implementation.
 
+## 2026-10-20 early overnight checkpoint
+
+- Draft PR #1 tracks this branch against `research/landscape-discovery`.
+- Cycle implementation `fb6f32c` and PDE implementation `8f9f3e0` were received
+  and integrated as `125a086` and `48916f5`. Both are **unexecuted**; code volume
+  is not completion evidence. Their readmes' expected values remain predictions.
+- `scripts/run_experiments.py` provides at most three one-thread processes,
+  per-process deadlines, process-group cleanup, invocation-isolated outputs and
+  separate queue/setup/process/total timings. Only Python parsing and `--help`
+  have been checked; the Julia suites have not yet run.
+- Astra static review `ses_eab4d7f9affesKGLN22Kk6LPor` found six concrete defects
+  or scope errors. Both existing builders have focused correction tasks, still
+  code-only pending the setup-owner completion notification.
+- Falsified implementation assumptions: `f(x(T))` is not the exact period
+  derivative of fixed-step-count RK4; unnormalized cosine-basis eigenvalues are
+  not physical rates; an even/reflection restriction is not a translation
+  quotient; an undeflated zero residual alone does not exclude known roots.
+- Other pending corrections: invalid Julia outer-constructor `new(...)` call;
+  cycle inference final parameters may not match its returned residual after an
+  exhausted iteration budget. Regression tests were requested for every finding.
+- Next discriminating checks: corrected source commits, then the minimal PDE
+  constructor/zero-state spectrum and coarse-mesh cycle sensitivity tests before
+  interpreting any larger run. Experiment 1 has not yet returned a completion
+  notification; do not infer its setup/reproduction outcome.
+
 ## Known uncertainties / do not repeat as established facts
 
 - Paper and released code appear to use different measure normalizations and
