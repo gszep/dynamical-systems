@@ -65,27 +65,43 @@ These analytic values are used as *independent expected values* in the tests
   (1 - k²)² with ratio ≈ 4 per refinement, and that the spectral solution has
   a small but genuinely nonzero FD collocation residual that shrinks with h.
 
-### Phase pinning: the reflection-invariant (even) restriction
+### Reflection-symmetric branch restriction (phase condition, not a translation quotient)
 
 The equation commutes with translations, so every nontrivial periodic
 stationary state U comes with a one-parameter orbit U(· - x₀) and the
 full-space linearization J has the phase direction U' in its kernel
 (‖J U'‖ = 0 — verified in the tests). Newton on the full space is therefore
-singular at solutions. We search exclusively in the subspace invariant under
-the grid reflection x → -x (cosine modes only, dimension N/2 + 1):
+singular at solutions. We search exclusively in the subspace spanned by the
+cosine modes (invariant under the grid reflection x → -x, dimension N/2 + 1).
+Its precise scope, demonstrated by regression tests:
 
-* this is an **explicit phase pinning (reflection gauge)**: translations leave
-  the subspace, and seeds are projected onto it before Newton
-  (`to_coeffs` symmetrizes), so the translation orbit is quotiented out;
-* the operator and nonlinearity preserve the subspace exactly, so the
-  restriction is the collocation system restricted to even u;
-* all Newton/continuation spectra reported as `*_sub` are spectra **of the even
-  subspace**: the phase mode is removed *by construction* (tested), and the
-  sine-sector (phase/sideband) part of the spectrum is **not** claimed stable.
-  An unstable even-subspace eigenvalue does imply full-space instability; the
-  converse is never claimed. Full-space spectra are also computed and reported
-  (`*_full`, including the ≈ 0 phase eigenvalue) — no full-space
-  asymptotic-stability claim is made anywhere in this experiment.
+* **Invariant restriction, not a quotient.** The operator and nonlinearity map
+  even vectors to even vectors, so the restriction is exactly the collocation
+  system restricted to reflection-symmetric u: a self-consistent family of
+  sub-branches.
+* **Phase condition.** Within the subspace the Newton Jacobian is nonsingular
+  at solutions whose translation orbit intersects the subspace: the phase
+  direction U' is odd, so it leaves the subspace (tested: ‖J U'‖ ≈ 0 in the
+  full space while the restricted spectrum has no near-zero rate).
+* **It excludes asymmetric states.** Solutions with no even translate never
+  enter the search scope. Example (tested): u = cos(x) + sin(2x) — each
+  component alone is a translate of an even function, but no single
+  translation makes both even, so this state is invisible to the restriction.
+* **It does not identify all translates.** Patterns with discrete translation
+  symmetries can appear in the subspace at several even phases (tested:
+  cos²x and sin²x are distinct even points and translates of each other);
+  dedupe identifies only the sign symmetry u → -u, not general translations.
+* **Projection changes Fourier power.** Projecting an asymmetric vector onto
+  the subspace removes its odd coefficients (tested), so descriptors are
+  computed on the projected (even) solutions by construction.
+* **Restricted rates are mass-normalized.** The cosine basis S is not
+  orthonormal (S'S = G, diagonal, entries N or N/2), so `*_sub` values are the
+  physical rates: eigenvalues of G⁻¹ᐟ²(S' J S)G⁻¹ᐟ² (the generalized problem
+  (S'JS)v = λ(S'S)v). The c-coordinate matrix alone would rescale modes by
+  diag(G) — at the zero state the critical mode would read (N/2)·r instead of
+  r; that defect is measured as a negative case on N = 32/64/128, while the
+  mass-normalized zero-state rates equal r − (1−k²)² with the critical mode
+  exactly at r.
 
 ## Algorithms
 
@@ -99,7 +115,11 @@ the grid reflection x → -x (cosine modes only, dimension N/2 + 1):
   at each known root cᵢ — known solutions cannot be re-found; all other roots
   persist. The Newton direction solves the equivalent unscaled system
   (J + R w') δ = -R with w = -Σᵢ 2(c - cᵢ)/‖c - cᵢ‖² (distance floored at
-  1e-30); convergence is always judged on the true residual.
+  1e-30); convergence is always judged on the true residual. Because that
+  undeflated merit is zero at known roots, exact and near known roots
+  (sign-aware relative distance below `dedup_tol` = 0.05) are excluded
+  explicitly: converging there returns `converged = false` with
+  `reason = "known_root_excluded"`, never a false success.
 * **Pseudo-arclength continuation** in z = (c, r): predictor z + ds·t,
   corrector Newton on the bordered system
   `[∂R/∂c  ∂R/∂r; t'] (dc, dr) = -(R, t'(z - z_prev) - ds)`,
@@ -132,7 +152,9 @@ r ∈ {-0.10, -0.20} on N = 64:
 | `highfreq` | 1 cos(3x) seed | strongly damped mode; expected collapse |
 
 Every attempt is recorded with outcome (`new`, `duplicate`, `trivial`,
-`not_converged:<reason>`), Newton iterations, residual, descriptors and
+`not_converged:<reason>` — including `known_root_excluded` for exact/near
+re-finds of already-known roots under deflation), Newton iterations, residual,
+descriptors and
 spectra; failed nonlinear solves go to `failures.csv`. The comparison the
 acceptance gate asks for — **localized-seed vs periodic-seed discoveries** —
 is exactly what `discovery.csv` records, family by family. Whether localized
@@ -209,14 +231,15 @@ compilation.
 
 | testset | checks |
 |---|---|
-| `transforms` | DFT roundtrip exactness; reflection involution; non-vacuous (u is not even); coeffs↔values roundtrip; exact fractional shift of band-limited data |
-| `spectral_operator_expected_spectrum` | assembled dense operator spectrum vs analytic r-(1-k²)² (machine precision); cosine columns are exact eigenvectors; even-subspace spectrum at u=0; critical mode sits at r (independent expected value) |
+| `transforms` | DFT roundtrip exactness; minimal default-grid construction regression (inner-constructor path; Gdiag weights N, N/2, N; mass-normalized basis orthonormal; Real-convenience path); reflection involution; non-vacuous (u is not even); coeffs↔values roundtrip; exact fractional shift of band-limited data |
+| `spectral_operator_expected_spectrum` | assembled dense operator spectrum vs analytic r-(1-k²)² (machine precision); cosine columns are exact eigenvectors; zero-state restricted rates on N=32/64/128: c-coordinate matrix rescales by diag(S'S) (critical mode reads (N/2)r — negative case), mass-normalized rates equal r-(1-k²)² with the critical mode exactly at r (independent expected values, cross-mesh) |
 | `fd_operator_expected_spectrum` | exact FD circulant spectrum; (I+D2) eigenvalues differ from spectral values (negative case) and converge at ratio ≈ 4 |
-| `newton_stationary_and_independent_expected` | residual < tol; rms matches single-mode Galerkin prediction within 8%; zero mean by symmetry; two coexisting states at r = -0.1 with n_pos = 0 vs 1; FD cross-check residual decreases with h and is genuinely nonzero |
-| `phase_mode_and_removal` | ‖J U'‖/‖U'‖ ≈ 0; full spectrum has exactly one ≈0 eigenvalue; even spectrum has none; spectrum invariant under grid-permutation translation (non-vacuous); descriptors translation-invariant (permutation + fractional) |
+| `newton_stationary_and_independent_expected` | residual < tol; rms matches single-mode Galerkin prediction within 8%; zero mean by symmetry; two coexisting states at r = -0.1 with n_pos = 0 vs 1 (mass-normalized rates); FD cross-check residual decreases with h and is genuinely nonzero |
+| `phase_mode_and_removal` | ‖J U'‖/‖U'‖ ≈ 0; full spectrum has exactly one ≈0 eigenvalue; mass-normalized restricted spectrum has none (min rate > 0.05); spectrum invariant under grid-permutation translation (non-vacuous); descriptors translation-invariant (permutation + fractional) |
 | `continuation_fold` | ≥ 20 accepted points; fold detected inside (−0.35, −0.12); fold amplitude window; arclength constraint exact at every point; no near-trivial accepted point; up-direction monotone to r_stop, fold-free |
-| `discovery_guards_and_deflation` | trivial probe rejected with reason "trivial"; ≥ 1 new cosk pattern; accepted set rms > 0.05; dedupe detects the undeflated repeat; deflated Newton cannot re-find the known state |
+| `discovery_guards_and_deflation` | trivial probe rejected with reason "trivial"; ≥ 1 new cosk pattern; accepted set rms > 0.05; dedupe detects the undeflated repeat; exact known seed → `known_root_excluded` (no false success at a zero of the undeflated merit); near-known seed excluded or lands on a genuinely new root; any deflated success has true residual at tolerance and is far from every known root |
 | `descriptor_symmetry_and_distinctness` | reflection + fractional-translation invariance (non-vacuous); cos k=1 vs cos k=2 vs sech² bump distinct in kbar/pr/bands |
+| `subspace_scope_not_translation_quotient` | the restriction is not a translation quotient: cos(x) has even translates; cos(x)+sin(2x) has none (every grid translation leaves a >10% odd part) so such states are out of scope; cos²x vs sin²x are retained translated representatives not caught by sign-dedupe; projecting an asymmetric vector changes its Fourier power (kbar) |
 | `morphology_vs_topology` | two branch points at the same r: kbar agrees (morphology) while norm ratio > 1.4 and even-sector n_pos differs (topology) |
 | `mesh_convergence` | N=32/64/128 Newtons converge; strict error decrease (values and coefficients); spectral abscissa converges; fold location converges (|r_f(128)−r_f(64)| < 5e-3) |
 | `trivial_solution_contamination` | zero seed converges in 0 iterations and is classified trivial; tiny-noise seed collapses and is rejected |
@@ -229,8 +252,10 @@ compilation.
    possible despite the conservative stdlib-only style. The tests are the
    first discriminator.
 2. **Deflation changes discovery basins**: with root-removing deflation, some
-   seeds that would find a known root now fail (recorded). Discovery counts
-   may be smaller than the undeflated run would give; failures.csv shows why.
+   seeds that would find a known root now fail (recorded); exact and near
+   known roots are excluded explicitly (`known_root_excluded`). Discovery
+   counts may be smaller than the undeflated run would give; failures.csv
+   shows why.
 3. **Continuation near the pitchfork**: the bordered system degenerates at the
    pitchfork; the trivial-approach guard terminates before that, but step
    halvings near the end are expected and logged.
@@ -242,3 +267,7 @@ compilation.
    finding to investigate, not to silence.
 6. **Localized states may not exist** at r ∈ {-0.10, -0.20} for this
    equation/parameter set — the honest outcome is whatever discovery records.
+7. **Restriction scope**: the reflection-symmetric restriction excludes
+   solutions with no even translate (e.g. asymmetric superpositions) and does
+   not identify general translations; absence of such states in the outputs
+   is a scope limitation of the search, never evidence of nonexistence.

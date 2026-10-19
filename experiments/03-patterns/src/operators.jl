@@ -5,7 +5,8 @@
 # Full space: value vector u in R^N, (1 + d_xx)^2 represented by the dense
 # spectral matrix Mmat. Even subspace: u = S c, residual R(c; r) = S' F(S c).
 # The even restriction is exactly the collocation system restricted to
-# reflection-symmetric u, because F maps even vectors to even vectors.
+# reflection-symmetric u, because F maps even vectors to even vectors (a
+# branch restriction, not a quotient of translations - see transforms.jl).
 
 function residual_full(disc::Discretization, cfg::SHConfig, u::Vector{Float64}, r::Float64)
     return (r .* u) .- (disc.Mmat * u) .+ (cfg.b .* (u .^ 3)) .- (u .^ 5)
@@ -30,6 +31,11 @@ function jacobian_full(disc::Discretization, cfg::SHConfig, u::Vector{Float64}, 
     return J
 end
 
+# Jacobian of residual_even in c-coordinates: d/dc [S' F(S c)] = S' J_full S.
+# The cosine basis is NOT orthonormal (S' S = diag(G) with entries N or N/2),
+# so this matrix is the correct Newton/continuation operator in c-coordinates
+# (Newton is coordinate-invariant), but its eigenvalues are NOT the physical
+# restricted rates: use spectrum_even (mass-normalized) for those.
 function jacobian_even(disc::Discretization, cfg::SHConfig, c::Vector{Float64}, r::Float64)
     return disc.S' * jacobian_full(disc, cfg, disc.S * c, r) * disc.S
 end

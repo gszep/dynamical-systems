@@ -255,7 +255,8 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
         "N_main" => N_main,
         "Ns_mesh" => Ns_mesh,
         "discretization" => "Fourier pseudospectral collocation, dense exact DFT matrices, no dealiasing",
-        "subspace" => "reflection-invariant (even/cosine) restriction; translation phase pinned by reflection gauge",
+        "subspace" => "reflection-symmetric (even/cosine) branch restriction; a phase condition that excludes states with no even translate, not a translation quotient",
+        "restricted_rates" => "even-subspace rates are mass-normalized: eigenvalues of G^{-1/2}(S'JS)G^{-1/2}, G = S'S",
         "linear_spectrum_formula" => "eigenvalues of r*I - (1+d_xx)^2 at wavenumber k: r - (1 - k^2)^2",
     )
     summary["params"] = Dict{String,Any}(
@@ -281,7 +282,7 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
         "random_seed_ids" => [Int(x) for x in cfg.random_seed_ids],
         "random_band_modes" => cfg.random_band_modes,
         "random_targets" => cfg.random_targets,
-        "deflation" => "classical root-removing deflation M = prod 1/||c-c_i||^2 (scale-free), discovery only; convergence judged on the true residual",
+        "deflation" => "classical root-removing deflation M = prod 1/||c-c_i||^2 (scale-free), discovery only; convergence judged on the true residual; exact/near known roots excluded (known_root_excluded)",
     )
     dsum = Dict{String,Any}()
     for dres in discovery_all

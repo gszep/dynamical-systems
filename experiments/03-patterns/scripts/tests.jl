@@ -6,17 +6,25 @@
 #     --project=experiments/03-patterns experiments/03-patterns/scripts/tests.jl
 #
 # Coverage map (see experiments/03-patterns/README.md for the expectations):
-#   * independent expected values: analytic spectral/FD operator spectra,
-#     single-mode Galerkin amplitude and fold predictions, exact FD circulant
-#     eigenvalues, phase-mode kernel direction;
-#   * negative cases: FD is NOT the spectral operator, trivial-state probes
-#     are rejected, distinct patterns get distinct descriptors, invariance
-#     tests are non-vacuous (the transformed vectors really differ), the
-#     even-restricted spectrum has no phase eigenvalue;
+#   * independent expected values: analytic spectral/FD operator spectra
+#     (mass-normalized restricted rates r - (1-k^2)^2, critical mode at r on
+#     N = 32/64/128), single-mode Galerkin amplitude and fold predictions,
+#     exact FD circulant eigenvalues, phase-mode kernel direction;
+#   * negative cases: FD is NOT the spectral operator, the c-coordinate
+#     even matrix is NOT the physical restriction (critical mode reads
+#     (N/2) r there), trivial-state probes are rejected, distinct patterns
+#     get distinct descriptors, invariance tests are non-vacuous (the
+#     transformed vectors really differ), the restricted spectrum has no
+#     phase eigenvalue;
 #   * convergence: FD O(h^2) eigenvalue error ratios, mesh N = 32/64/128
 #     solution and fold-location convergence;
-#   * symmetry: translation (grid-permutation and fractional spectral shift)
-#     and reflection invariance of descriptors and of the full spectrum.
+#   * symmetry and scope: translation (grid-permutation and fractional
+#     spectral shift) and reflection invariance of descriptors and of the
+#     full spectrum; the even restriction is a reflection-symmetric branch
+#     restriction, not a translation quotient (asymmetric states excluded,
+#     translated representatives retained, projection changes Fourier power);
+#   * deflation: exact and near known roots are excluded explicitly
+#     (known_root_excluded); no false success from the undeflated merit.
 
 using Test
 using LinearAlgebra
@@ -51,6 +59,21 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         ub = real.(D64.Ein * uh)
         @test norm(ub .- u) < 1.0e-11
         @test maximum(abs, imag.(D64.Ein * uh)) < 1.0e-11
+        # regression: minimal default-grid construction (inner-constructor path;
+        # an outer method cannot call `new`)
+        dmin = Discretization(8pi, 64)
+        @test dmin.N == 64 && dmin.Nc == 33
+        @test length(dmin.x) == 64 && length(dmin.kcos) == 33
+        @test abs(dmin.Gdiag[1] - 64.0) < 1.0e-12        # k = 0 column weight N
+        @test abs(dmin.Gdiag[2] - 32.0) < 1.0e-12        # interior column weight N/2
+        @test abs(dmin.Gdiag[33] - 64.0) < 1.0e-12       # Nyquist column weight N
+        @test isapprox(dmin.kcos[5], 1.0)                # critical wavenumber k = 1
+        @test length(dmin.Ghalfinv) == 33
+        # the mass-normalized cosine basis has orthonormal columns
+        Sh = dmin.S * Diagonal(dmin.Ghalfinv)
+        @test maximum(abs, Sh' * Sh .- Matrix(1.0I, 33, 33)) < 1.0e-12
+        # outer Real-convenience constructor path
+        @test Discretization(Float32(8.0 * pi), 32).N == 32
         # grid reflection basics
         @test norm(reflect_values(D64, reflect_values(D64, u)) .- u) < 1.0e-14
         @test norm(reflect_values(D64, u) .- u) > 1.0e-3   # non-vacuous: u is not even
@@ -79,13 +102,26 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
             col = D64.S[:, n]
             @test norm(D64.Mmat * col .- D64.mcos[n] .* col) < 1.0e-8
         end
-        # even-subspace spectrum at u = 0: r - (1 - k^2)^2 on cosine modes
-        JE0 = jacobian_even(D64, CFG, zeros(D64.Nc), r)
-        lame = sort(eigvals(Symmetric(JE0)))
-        anale = sort([r - D64.mcos[n] for n in 1:D64.Nc])
-        @test maximum(abs, lame .- anale) < 1.0e-8
-        # independent expected value: the critical cosine mode (k = 1) sits at r
-        @test abs(minimum(abs, lame) - 0.1) < 1.0e-8
+        # even-subspace restriction: the c-coordinate matrix S'(J)S is NOT the
+        # physical restricted operator (the cosine basis is non-orthonormal);
+        # the physical rates are mass-normalized by G = S'S. Zero state, all
+        # three meshes: the coordinate matrix rescales modes by diag(G) (the
+        # critical cosine mode reads (N/2) r - the defect, kept as a negative
+        # case), while the mass-normalized rates equal the analytic
+        # r - (1-k^2)^2 with the critical mode exactly at r.
+        for N in (32, 64, 128)
+            d = Discretization(L_TEST, N)
+            JE0 = jacobian_even(d, CFG, zeros(d.Nc), r)
+            lame_coord = sort(eigvals(Symmetric(JE0)))
+            @test abs(minimum(abs, lame_coord) - (N / 2) * 0.1) < 1.0e-6
+            W = Diagonal(d.Ghalfinv)
+            lame = sort(eigvals(Symmetric(W * JE0 * W)))
+            anale = sort([r - d.mcos[n] for n in 1:d.Nc])
+            @test maximum(abs, lame .- anale) < 1.0e-8
+            sp0 = spectrum_even(d, CFG, zeros(d.Nc), r)
+            @test abs(sp0.min_abs - 0.1) < 1.0e-8   # critical rate = r, every mesh
+            @test sp0.n_pos == 0
+        end
     end
 
     @testset "fd_operator_expected_spectrum" begin
@@ -162,9 +198,10 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         @test norm(J * up) / norm(up) < 1.0e-9
         lamF = eigvals(Symmetric(J))
         @test count(v -> abs(v) < 1.0e-8, lamF) == 1
-        # the even restriction removes exactly that mode
+        # the even restriction removes exactly that mode (mass-normalized rates)
         JE = jacobian_even(D64, CFG, c, R_FIX)
-        lamE = eigvals(Symmetric(JE))
+        WE = Diagonal(D64.Ghalfinv)
+        lamE = eigvals(Symmetric(WE * JE * WE))
         @test count(v -> abs(v) < 1.0e-8, lamE) == 0
         @test minimum(abs, lamE) > 0.05
         # integer-grid translation is an exact permutation: the full spectrum is
@@ -242,10 +279,28 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         res2 = newton_even(D64, CFG, C_SEED_LARGE, R_FIX)
         @test res2.converged
         @test is_duplicate(res2.c, dres.known, CFG.dedup_tol)
-        # classical deflation removes the known roots: the same seed can no
-        # longer converge to the known large state (different root or failure)
+        # exact known seed: the deflated solver must not report a false
+        # success at a known root even though the undeflated merit is zero there
+        res_exact = newton_even(D64, CFG, copy(dres.known[1]), R_FIX; known=dres.known)
+        @test !res_exact.converged
+        @test res_exact.reason == "known_root_excluded"
+        # near-known seed: excluded as well, or it lands on a genuinely new root
+        cnear = dres.known[1] .+ 1.0e-3
+        res_near = newton_even(D64, CFG, cnear, R_FIX; known=dres.known)
+        @test !res_near.converged ||
+              all(ck -> dedup_distance(res_near.c, ck) > 0.02, dres.known)
+        # undeflated merit escaping known roots without false success: from
+        # the large-seed basin, the deflated Newton either fails (recorded) or
+        # converges to a genuinely new root: true residual at tolerance and
+        # far from every known root
         resd = newton_even(D64, CFG, C_SEED_LARGE, R_FIX; known=dres.known)
-        @test !resd.converged || rel_dist(resd.c, NEWTON_LARGE.c) > 0.02
+        if resd.converged
+            @test resd.residual <= CFG.tol_residual
+            @test all(ck -> dedup_distance(resd.c, ck) > 0.02, dres.known)
+            @test rel_dist(resd.c, NEWTON_LARGE.c) > 0.02
+        end
+        # (a recorded failure - no_descent/maxiter/known_root_excluded/... -
+        # is an equally acceptable deflated outcome by design)
     end
 
     @testset "descriptor_symmetry_and_distinctness" begin
@@ -272,6 +327,47 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         @test dc1.f1 > 0.9        # cos(k=1): power in the fundamental band
         @test dc2.f2 > 0.9        # cos(k=2): power in the second band
         @test dloc.f1 < 0.5       # a wide bump spreads power over low bands
+    end
+
+    @testset "subspace_scope_not_translation_quotient" begin
+        # The reflection-symmetric restriction is NOT a quotient of the
+        # translation group. Demonstrations of its precise scope:
+        # (1) cos(x) has even translates: its translation orbit meets the
+        #     subspace (at x0 = 0 and pi)
+        v1 = [cos(1.0 * D64.x[j]) for j in 1:D64.N]
+        best1 = Inf
+        for m in 0:(D64.N - 1)
+            w = shift_grid_values(v1, m)
+            best1 = min(best1, norm(w .- project_even(D64, w)) / norm(w))
+        end
+        @test best1 < 1.0e-10
+        # (2) cos(x) + sin(2x) has NO even translate: each component alone is
+        #     a translate of an even function, but no single translation works
+        #     for both - such asymmetric states are EXCLUDED from the scope
+        v2 = [cos(1.0 * D64.x[j]) + sin(2.0 * D64.x[j]) for j in 1:D64.N]
+        best2 = Inf
+        for m in 0:(D64.N - 1)
+            w = shift_grid_values(v2, m)
+            best2 = min(best2, norm(w .- project_even(D64, w)) / norm(w))
+        end
+        @test best2 > 0.1
+        # (3) the restriction may RETAIN translated representatives:
+        #     cos^2 x and sin^2 x are translates of each other (shift pi/2 =
+        #     4 nodes) yet distinct points of the subspace, and the sign-aware
+        #     dedupe does not identify them
+        a = [cos(1.0 * D64.x[j])^2 for j in 1:D64.N]
+        b = [sin(1.0 * D64.x[j])^2 for j in 1:D64.N]
+        @test norm(a .- shift_grid_values(b, 4)) < 1.0e-10   # exact translate (pi/2 = 4 nodes), up to argument roundoff
+        ca = to_coeffs(D64, a)
+        cb = to_coeffs(D64, b)
+        @test rel_dist(ca, cb) > 0.1
+        @test !is_duplicate(ca, cb, CFG.dedup_tol)
+        # (4) projecting an asymmetric vector onto the subspace changes its
+        #     Fourier power spectrum (odd coefficients are removed)
+        d_asym = descriptors(D64, v2)
+        d_proj = descriptors(D64, project_even(D64, v2))
+        @test norm(project_even(D64, v2) .- v2) / norm(v2) > 0.1   # non-vacuous
+        @test abs(d_asym.kbar - d_proj.kbar) > 0.3
     end
 
     @testset "morphology_vs_topology" begin

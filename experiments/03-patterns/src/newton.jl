@@ -1,4 +1,4 @@
-# Damped Newton for R(c; r) = 0 in the reflection-invariant (even) subspace,
+# Damped Newton for R(c; r) = 0 in the reflection-symmetric (even) subspace,
 # with optional classical (root-removing) deflation away from known solutions.
 #
 # Deflation (discovery only): with known solutions c_i, the deflated residual is
@@ -11,9 +11,16 @@
 # the Newton direction solves the equivalent unscaled system
 #   (J + R w') delta = -R,
 # because M > 0 is a scalar factor. The distance ||c - c_i||^2 is floored at
-# 1e-30 to keep the linear algebra finite. Convergence and the backtracking
-# descent test always use the TRUE (undeflated) residual, so the deflation
-# pole can never fake a converged solution.
+# 1e-30 to keep the linear algebra finite.
+#
+# Known-root exclusion: the TRUE (undeflated) residual is always used for the
+# descent test and for convergence, so its zeros at known roots could
+# otherwise masquerade as successes (an exact known seed would converge
+# instantly). With `known` nonempty, exact and near known roots are therefore
+# excluded explicitly: if the iteration reaches a point whose sign-aware
+# relative distance to some c_i is below cfg.dedup_tol, the solver returns
+# `converged = false` with `reason = "known_root_excluded"` instead of a
+# false success. Any reported success is then a genuinely new root.
 
 function _deflation_w(c::Vector{Float64}, known::Vector{Vector{Float64}})
     if isempty(known)
@@ -31,11 +38,20 @@ function _deflation_w(c::Vector{Float64}, known::Vector{Vector{Float64}})
     return w
 end
 
+# Sign-aware near-known test (dedup_distance is defined in discovery.jl).
+function _near_known(c::Vector{Float64}, known::Vector{Vector{Float64}}, tol::Float64)
+    return any(ck -> dedup_distance(c, ck) < tol, known)
+end
+
 """
     newton_even(disc, cfg, c0, r; known = [])
 
-Damped Newton on the even-subspace residual R(c; r) = S' F(S c; r). If `known`
-is nonempty, the classical deflation above removes those roots before solving.
+Damped Newton on the even-subspace residual R(c; r) = S' F(S c; r), in
+c-coordinates (Newton iterates in value space are coordinate-invariant). If
+`known` is nonempty, classical deflation removes those roots, and exact or
+near known roots (sign-aware relative distance below `cfg.dedup_tol`) are
+excluded explicitly: converging to such a point returns
+`(converged = false, reason = "known_root_excluded")`, never a false success.
 Returns a NamedTuple `(converged, iters, c, residual, reason)`; `residual` is
 the true (never deflated) ||R(c)||_2. Failures return with
 `converged = false` and a diagnostic `reason` string, which callers record.
@@ -46,6 +62,10 @@ function newton_even(disc::Discretization, cfg::SHConfig, c0::Vector{Float64}, r
     R = residual_even(disc, cfg, c, r)
     nrm = norm(R)
     if nrm <= cfg.tol_residual
+        if !isempty(known) && _near_known(c, known, cfg.dedup_tol)
+            return (converged=false, iters=0, c=c, residual=nrm,
+                    reason="known_root_excluded")
+        end
         return (converged=true, iters=0, c=c, residual=nrm, reason="converged")
     end
     for it in 1:cfg.max_newton
@@ -93,6 +113,10 @@ function newton_even(disc::Discretization, cfg::SHConfig, c0::Vector{Float64}, r
         R = R_new
         nrm = nrm_new
         if nrm <= cfg.tol_residual
+            if !isempty(known) && _near_known(c, known, cfg.dedup_tol)
+                return (converged=false, iters=it, c=c, residual=nrm,
+                        reason="known_root_excluded")
+            end
             return (converged=true, iters=it, c=c, residual=nrm, reason="converged")
         end
     end

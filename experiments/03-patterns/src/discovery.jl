@@ -4,13 +4,18 @@
 # recorded seed table is run through damped Newton with deflation; every
 # attempt (converged or not) is recorded with its outcome, and the summary
 # states counts only. Guards reject the trivial state and NaN results, and
-# duplicates are detected up to the sign symmetry u -> -u (the equation is odd:
-# -U is a solution whenever U is).
+# duplicates are detected up to the sign symmetry u -> -u (the equation is
+# odd: -U is a solution whenever U is).
 #
-# All seeds are projected onto the reflection-invariant (even) subspace before
-# Newton (to_coeffs symmetrizes), which is the phase pinning: translations of
-# a pattern are not distinct points of the search space, and a bump at x = 0
-# or x = L/2 stays a single bump under that projection.
+# All seeds are projected onto the reflection-symmetric (even) subspace before
+# Newton (to_coeffs symmetrizes). That restriction is a PHASE CONDITION, not a
+# quotient of the translation group: it keeps the Newton system nonsingular
+# for solutions whose translation orbit meets the subspace, it EXCLUDES
+# solutions with no even translate from the search scope (see transforms.jl),
+# and distinct even translates of one pattern remain distinct points -
+# dedupe identifies only the sign symmetry u -> -u, not general translations.
+# The seed families are built from cosines, even bumps at x = 0 or L/2, and
+# cosine-only random fields, so the projection leaves them unchanged.
 
 struct SeedSpec
     family::String

@@ -38,8 +38,12 @@ directory contains only this README.
 
 ## Interpretation rules
 
-* `*_sub` spectra are spectra of the reflection-invariant (even) subspace:
-  the translation phase mode is removed by construction. `*_full` spectra
+* `*_sub` spectra are the physical rates of the reflection-symmetric (even)
+  restriction, mass-normalized against G = S'S: eigenvalues of
+  G^-1/2 (S' J S) G^-1/2. The translation phase mode is absent from them by
+  construction (the restriction is a phase condition, not a translation
+  quotient; it also excludes states with no even translate and does not
+  identify general translations). `*_full` spectra
   include the ≈ 0 phase eigenvalue. Unstable even-subspace eigenvalues imply
   full-space instability; the converse is never claimed.
 * Discovery rows describe what the fixed seed table actually found;
