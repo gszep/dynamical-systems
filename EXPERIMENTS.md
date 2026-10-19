@@ -88,6 +88,30 @@ does block claiming end-to-end reproduction of the original implementation.
   interpreting any larger run. Experiment 1 has not yet returned a completion
   notification; do not infer its setup/reproduction outcome.
 
+## Setup released and first numerical evidence
+
+The preceding setup hold is **superseded by the experiment-1 completion
+notification** (`ses_eab758964ffeJCzR58tBi155La`): setup finished in 759 seconds.
+The three-process/one-thread-per-process budget now applies to numerical runs.
+
+- Equilibrium commit `4b6fe24` integrated as `024838a`. Original package v0.1.4,
+  source `534ee7c`, loaded and executed a tiny 8-iteration `train!` run, according
+  to the builder's committed artifacts. This is not reproduction of the paper's
+  large-scale experiments. KrylovKit 0.7.1 was pinned within declared compatibility
+  to resolve the 0.8 `RecursiveVec` API change; retrying the drifted resolution is
+  not useful. No source patch or credential change was needed.
+- Parent independently reran standard-library probe tests: **101/101 passed**,
+  31.39 seconds process wall time (23.1 seconds inside the testset), exit 0.
+  Evidence: `results/validation/initial-equilibria.txt`.
+- Measure-normalization and distance-power differences now have numerical probes;
+  scientific interpretation is undergoing independent Astra review. Exact-match
+  NaN gradients and empty-prediction behavior are explicitly recorded negatives.
+- The equilibrium builder is now testing direct finite-difference consistency of
+  the released measure gradient and the normalized main-text measure gradient,
+  and adding isolated output-directory support. This gate is not yet passed.
+- Cycle and PDE builders are still correcting the static findings. Their suites
+  may run as soon as those commits return; no additional user approval is needed.
+
 ## Known uncertainties / do not repeat as established facts
 
 - Paper and released code appear to use different measure normalizations and
