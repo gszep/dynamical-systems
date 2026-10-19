@@ -176,6 +176,28 @@ bounded overnight heartbeat active.
 - The equilibrium builder continues the reviewed windowed-gradient investigation.
   Aggregate permitted numerical processes remain three, one per active lane.
 
+## Equilibrium gradient gate escalated
+
+Revision `1038d09` integrated as `9269d91`: six earlier review corrections,
+184-test builder result, and direct package-gradient experiments. Parent rerun of
+the stdlib tests/probes is active under `sh_154d2d82e001EFiWQvy9IRHdFp`; do not
+duplicate it. These independent probes do not themselves certify package gradients.
+
+The reviewer rejected the package-gradient "pass" interpretation: absolute
+thresholds 0.05/0.10 exceed the smaller component (~0.01491); its refinement errors
+are nonmonotone and finite differences lack a demonstrated plateau. O(ds) and
+"correct continuum derivative" claims are **not established**. Full-minus-truncated
+derivatives also conflate tail and endpoint terms. Required FD exceptions and
+nonfinite results need stricter failure propagation.
+
+The same equilibrium child session is now escalated to `openai/gpt-6-astra` for
+this narrow task, rather than another blind retry. It is initially code-only while
+the parent rerun occupies its numerical slot. Release that restriction on the
+parent job's completion; retain at most three aggregate numerical processes.
+Its instructions require component-wise FD plateaus, finer ds checks, explicit
+boundary terms, real injected failure paths, and an honest inconclusive/failure
+status when the derivative evidence does not support acceptance.
+
 ## Known uncertainties / do not repeat as established facts
 
 - Paper and released code use different measure normalizations and target-distance
