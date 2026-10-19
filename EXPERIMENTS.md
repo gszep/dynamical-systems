@@ -31,11 +31,37 @@ Lean theorem or exhaustive landscape coverage is claimed by these experiments.
 - Research notes and report were committed and pushed; source-reading limitations
   are disclosed in the report.
 - Local host: macOS x86_64, 12 logical CPUs, 64 GiB RAM. Julia is not on PATH.
-- Next check: install a checksum-verified, repository-local Julia runtime, then
-  implement independent baselines in three isolated worktrees.
-- No jobs or recurring continuation mechanism have yet been established.
+- Runtime setup completed: official Julia 1.10.11 macOS x86_64 archive verified
+  against published SHA-256
+  `bdc6f52ee4fdcf13f0d0e2480733742b7eefb7fbfc66c518daca6e19e804f34b`.
+  Download/extraction took 18.63 seconds. Binary (ignored, not committed):
+  `.tools/julia-1.10.11/bin/julia`; `--version` succeeded.
+- Three linked Lunaroute builders were launched. Experiment 1 exclusively owns
+  package setup and may run tests; experiments 2–3 are code-only until setup ends.
+  Each must commit in its own worktree; the orchestrator integrates and tests.
+- An hourly heartbeat was created successfully through the runtime tool:
+  `17a3bc89`, eight runs maximum, cron `17 * * * *`, timezone `Asia/Tokyo`.
+  First run: 2026-10-20 00:17 JST; expiry: 2026-10-20 08:22 JST.
+  Tool target agent: `92faf50a-40a6-45d1-af0b-20718405c76f`.
+  This is a wake-up prompt, not evidence that numerical experiments completed.
+- Next check: on child completion, inspect focused commits, integrate them into
+  `experiments/overnight-baselines`, then run independent suites within the budget.
 - `artemis` has not been accessed. No machine or account configuration changes are
   needed for the initial CPU baselines.
+
+## Linked work (do not duplicate)
+
+| Experiment | Canonical child session | Worktree / branch | Initial task |
+|---|---|---|---|
+| 1 | `ses_eab758964ffeJCzR58tBi155La` | `../dynamical-systems-exp01` / `experiments/equilibria` | Pin upstream, attempt package reproduction, implement objective/gradient probes; setup owner |
+| 2 | `ses_eab75894bffeWRbWOtuYsp6WQG` | `../dynamical-systems-exp02` / `experiments/cycles` | Stdlib phase-fixed shooting, cycle inference and numerical Floquet; code only initially |
+| 3 | `ses_eab758926ffe1HvejhOsS6e6uO` | `../dynamical-systems-exp03` / `experiments/patterns` | Stdlib nonlinear 1D Swift–Hohenberg continuation and morphology; code only initially |
+
+The code-only hold expires when experiment 1 reports package setup finished or
+stopped; it is an orchestration resource constraint, not a request for user approval.
+Children notify automatically: do not poll them or duplicate their work. A blocked
+upstream package does not block independent analytic cycle/PDE baselines, but it
+does block claiming end-to-end reproduction of the original implementation.
 
 ## Known uncertainties / do not repeat as established facts
 

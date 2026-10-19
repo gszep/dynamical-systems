@@ -4,6 +4,7 @@ Research package (2026-10-19) investigating a revival of the inverse-bifurcation
 
 ## Contents
 
+- **Active experiments** — [EXPERIMENTS.md](EXPERIMENTS.md): authorized experiments 1–3, acceptance gates, linked builders, execution budget and overnight checkpoint.
 - **Final report** — [reports/Reviving dynamical landscape research.md](reports/Reviving%20dynamical%20landscape%20research.md): synthesis of all six notes; separates empirical facts, recommendations and unknowns; includes reading-coverage disclosure.
 - **Research notes** — [research_notes/Reviving dynamical landscape research/](research_notes/Reviving%20dynamical%20landscape%20research/):
   - [thesis.md](research_notes/Reviving%20dynamical%20landscape%20research/thesis.md) — thesis aims, mathematics, assumptions, limitations and future-work headings (read from full LaTeX source; embedded publication PDFs not read).
@@ -13,4 +14,4 @@ Research package (2026-10-19) investigating a revival of the inverse-bifurcation
   - [lean_agents.md](research_notes/Reviving%20dynamical%20landscape%20research/lean_agents.md) — Julia agentic-coding evidence, Lean FFI/bindings, proof-validation ladder, Mathlib maturity, first milestones.
   - [audit.md](research_notes/Reviving%20dynamical%20landscape%20research/audit.md) — one-round selective audit (2026-10-19) whose corrections **govern all notes above**; read it alongside them.
 
-Provenance: all notes were researched and audited on 2026-10-19; the report is the synthesis of record. No code was installed, built or benchmarked in this research.
+Provenance: all notes were researched and audited on 2026-10-19; the report is the synthesis of record. No code was installed, built or benchmarked during that initial research pass. Subsequent implementation and actual execution evidence are tracked separately in `EXPERIMENTS.md`.
