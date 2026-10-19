@@ -1,0 +1,5 @@
+.tools/
+.julia-depot/
+.venv/
+__pycache__/
+*.log
