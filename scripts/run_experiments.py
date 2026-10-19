@@ -17,6 +17,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = {
+    "01-equilibria": ("tests.jl", "main.jl"),
     "02-cycles": ("tests.jl", "main.jl"),
     "03-patterns": ("scripts/tests.jl", "scripts/main.jl"),
 }
@@ -69,6 +70,10 @@ def main():
 
     signal.signal(signal.SIGINT, cancel)
     signal.signal(signal.SIGTERM, cancel)
+    source_head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    source_status = subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True).splitlines()
     setup_seconds = time.monotonic() - start
     submitted = time.monotonic()
 
@@ -123,6 +128,8 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         results = list(pool.map(stage, args.stages))
     summary = {"run_id": stamp, "setup_seconds": setup_seconds,
+               "source_head_at_start": source_head,
+               "source_status_at_start": source_status,
                "total_seconds": time.monotonic() - start,
                "budget": {"max_processes": args.jobs, "threads_per_process": 1},
                "cancelled": stop.is_set(), "stages": results}
