@@ -9,7 +9,13 @@
 #   * independent expected values: analytic spectral/FD operator spectra
 #     (mass-normalized restricted rates r - (1-k^2)^2, critical mode at r on
 #     N = 32/64/128), single-mode Galerkin amplitude and fold predictions,
-#     exact FD circulant eigenvalues, phase-mode kernel direction;
+#     exact FD circulant eigenvalues;
+#   * phase mode: the translation phase direction U' is an approximate null
+#     vector of the collocation Jacobian - the defect ||J U'||/||U'|| is a
+#     resolution-dependent aliasing quantity (undealiased collocation
+#     preserves only grid shifts), verified against independent derivative
+#     and operator-application assemblies and swept over N = 32/64/128/256;
+#     the full-space spectrum keeps exactly one near-zero eigenvalue;
 #   * negative cases: FD is NOT the spectral operator, the c-coordinate
 #     even matrix is NOT the physical restriction (critical mode reads
 #     (N/2) r there), trivial-state probes are rejected, distinct patterns
@@ -17,7 +23,7 @@
 #     transformed vectors really differ), the restricted spectrum has no
 #     phase eigenvalue;
 #   * convergence: FD O(h^2) eigenvalue error ratios, mesh N = 32/64/128
-#     solution and fold-location convergence;
+#     solution and fold-location convergence, phase-defect resolution decay;
 #   * symmetry and scope: translation (grid-permutation and fractional
 #     spectral shift) and reflection invariance of descriptors and of the
 #     full spectrum; the even restriction is a reflection-symmetric branch
@@ -193,9 +199,38 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         u = D64.S * c
         J = jacobian_full(D64, CFG, u, R_FIX)
         up = derivative_values(D64, u)
-        # the translation phase direction U' is in the kernel of the full-space
-        # linearization (relative-equilibrium neutral mode)
-        @test norm(J * up) / norm(up) < 1.0e-9
+        # derivative implementation is exact on band-limited data ...
+        vb = [cos(1.0 * D64.x[j]) + 0.1 * cos(3.0 * D64.x[j]) for j in 1:D64.N]
+        db = [-sin(1.0 * D64.x[j]) - 0.3 * sin(3.0 * D64.x[j]) for j in 1:D64.N]
+        @test norm(derivative_values(D64, vb) .- db) < 1.0e-12
+        # ... and agrees with an independent FD derivative on the solution to
+        # the FD truncation order: the dominant k=1 component truncates by
+        # 1 - sin(kh)/(kh) with kh = pi/8, i.e. ~0.0255 (the measured value)
+        hgrid = D64.L / D64.N
+        upfd = [(u[mod1(j + 1, D64.N)] - u[mod1(j - 1, D64.N)]) / (2.0 * hgrid)
+                for j in 1:D64.N]
+        @test norm(upfd .- up) / norm(up) < 0.04
+        # independent assembly path: J*U' must equal the pointwise/DFT
+        # application (r I - (1+d_xx)^2 + diag(g)) U', verifying the Jacobian
+        # assembly against the operator semantics rather than against itself
+        uhc = D64.E * up
+        for n in 1:D64.N
+            uhc[n] = uhc[n] * D64.mfull[n]
+        end
+        sh2_up = real.(D64.Ein * uhc)
+        gv = (3.0 * CFG.b .* (u .^ 2)) .- (5.0 .* (u .^ 4))
+        Jup_indep = (R_FIX .* up) .- sh2_up .+ (gv .* up)
+        @test norm(Jup_indep .- J * up) / norm(up) < 1.0e-10
+        # the translation phase mode is a RESOLUTION-DEPENDENT discretization
+        # quantity, not an exact null: the undealiased collocation nonlinearity
+        # preserves only grid shifts (continuous translations are broken), so
+        # ||J U'||/||U'|| is dominated by the first nonlinear harmonic past
+        # the Nyquist limit (~6e-4 at N=64). It stays small at the working
+        # resolution; the sweep testset below checks its resolution behavior.
+        @test norm(J * up) / norm(up) < 0.05
+        # the full-space spectrum still contains exactly one near-zero
+        # eigenvalue: the discrete phase mode (U' is its approximate
+        # eigenvector, with the defect bounded above)
         lamF = eigvals(Symmetric(J))
         @test count(v -> abs(v) < 1.0e-8, lamF) == 1
         # the even restriction removes exactly that mode (mass-normalized rates)
@@ -219,6 +254,35 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         @test norm(uf .- u) > 0.1
         d3 = descriptors(D64, uf)
         @test maximum(abs, descriptor_vector(d1) .- descriptor_vector(d3)) < 1.0e-10
+    end
+
+    @testset "phase_mode_resolution_defect" begin
+        # ||J U'||/||U'|| is a discretization quantity (see phase_mode_defect):
+        # it must fall sharply as the pattern's nonlinear harmonics fit under
+        # the Nyquist limit. N=32: the quintic's k=5 output aliases (O(1));
+        # N=64: its k=9 output aliases (~6e-4); N >= 128: all significant
+        # harmonics fit and the defect sits at the aliasing/roundoff floor.
+        defects = Float64[]
+        for N in (32, 64, 128, 256)
+            d = Discretization(L_TEST, N)
+            u0 = [1.2 * cos(1.0 * d.x[j]) for j in 1:N]
+            res = newton_even(d, CFG, to_coeffs(d, u0), R_FIX)
+            # N=256: the absolute tolerance 1e-9 sits below the MEASURED
+            # roundoff floor of the dense solve (stall at ||R|| ~ 1.3e-8;
+            # cond(J_even) ~ 4e6 from the critical-mode vs Nyquist eigenvalue
+            # spread, so eps*cond*||R0|| ~ 1e-8). The stalled iterate is an
+            # excellent solution (pointwise residual ~1e-10), so this sweep
+            # accepts ||R|| <= 1e-6 for the defect measurement only; all
+            # other resolutions converge under the default tolerance.
+            solved = res.converged || res.residual <= 1.0e-6
+            @test solved
+            push!(defects, phase_mode_defect(d, CFG, res.c, R_FIX))
+        end
+        @test defects[1] > defects[2]      # N=32 -> N=64: k=5 alias removed
+        @test defects[2] > defects[3]      # N=64 -> N=128: k=9 alias removed
+        @test defects[3] < 1.0e-6          # all significant harmonics fit
+        @test defects[4] < 1.0e-6          # ... and stay fitted at N=256
+        @test defects[2] < 0.05            # working resolution: approximately null
     end
 
     @testset "continuation_fold" begin
@@ -361,7 +425,7 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         ca = to_coeffs(D64, a)
         cb = to_coeffs(D64, b)
         @test rel_dist(ca, cb) > 0.1
-        @test !is_duplicate(ca, cb, CFG.dedup_tol)
+        @test !is_duplicate(ca, [cb], CFG.dedup_tol)
         # (4) projecting an asymmetric vector onto the subspace changes its
         #     Fourier power spectrum (odd coefficients are removed)
         d_asym = descriptors(D64, v2)

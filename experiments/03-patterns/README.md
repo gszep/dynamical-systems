@@ -5,13 +5,19 @@ Newton solvers, pseudo-arclength continuation through folds, multi-seed branch
 discovery with deflation, symmetry-aware morphology descriptors, and
 mesh-convergence evidence on dense small grids (N = 32/64/128).
 
-**Status: code written, NOT executed.** This experiment was implemented while
-package setup ran concurrently; Julia execution, builds and simulations were
-forbidden in the writing session. The parent/orchestrator runs
-`scripts/tests.jl` and `scripts/main.jl` with the pinned runtime. Until that
-first run, every numeric expectation below is a prediction, not evidence.
-`EXPERIMENTS.md` (a repository root file, outside this experiment's ownership)
-is updated by the parent with the achieved evidence.
+**Status: implemented and first executed (2026-10-20).** The code was
+originally written under a concurrent-package-setup hold (no execution); after
+release, the pinned runtime executed `scripts/tests.jl`
+(**208/208 passed, exit 0**) and `scripts/main.jl` (**exit 0**), writing the
+committed artifacts under `results/03-patterns/` (see that README for the
+provenance and headline numbers: fold −0.2250098 vs Galerkin −0.225, Galerkin
+amplitudes reproduced at both discovery parameters, mesh errors
+1.84e-3 → 1.80e-8, phase-mode defect sweep, 41 recorded discovery failures,
+no localized states found). Two static-review rounds were fixed before
+execution (inner constructor, mass-normalized restricted rates, explicit
+known-root exclusion, reflection-restriction scope) and their regressions are
+part of the passing suite. `EXPERIMENTS.md` (a repository root file, outside
+this experiment's ownership) is updated by the parent.
 
 ## Mathematical formulation
 
@@ -81,8 +87,11 @@ Its precise scope, demonstrated by regression tests:
   sub-branches.
 * **Phase condition.** Within the subspace the Newton Jacobian is nonsingular
   at solutions whose translation orbit intersects the subspace: the phase
-  direction U' is odd, so it leaves the subspace (tested: ‖J U'‖ ≈ 0 in the
-  full space while the restricted spectrum has no near-zero rate).
+  direction U' is odd, so it leaves the subspace (tested: the restricted
+  spectrum has no near-zero rate, min |rate| > 0.05 at the working
+  resolution). In the full space the discrete phase mode remains a single
+  near-zero eigenvalue (measured ≈ −5.4e-9 at N=64); ‖J U'‖/‖U'‖ is a
+  resolution-dependent defect, quantified below — not an exact null.
 * **It excludes asymmetric states.** Solutions with no even translate never
   enter the search scope. Example (tested): u = cos(x) + sin(2x) — each
   component alone is a translate of an even function, but no single
@@ -102,6 +111,25 @@ Its precise scope, demonstrated by regression tests:
   r; that defect is measured as a negative case on N = 32/64/128, while the
   mass-normalized zero-state rates equal r − (1−k²)² with the critical mode
   exactly at r.
+
+**Measured phase-mode defect.** The translation phase direction U' is an
+exact null vector of the *continuous* linearization, but the undealiased
+collocation nonlinearity preserves only grid shifts (continuous translations
+are broken by the discretization), so the relative residual
+`phase_mode_defect` = ‖J U'‖/‖U'‖ is a resolution-dependent aliasing quantity
+— approximately 2·k_Nyquist times the amplitude of the first nonlinear
+harmonic past Nyquist. Measured (exposed in `patterns_summary.toml` under
+`[phase_mode]`): **0.543** at N=32 (the quintic's k=5 output aliases),
+**6.24e-4** at N=64 (its k=9 output aliases), **1.80e-9** at N=128 and
+**1.78e-7** at N=256 (both once all significant harmonics fit; the N=256
+entry is limited by the measured Newton roundoff floor at that resolution —
+see limitations — not by aliasing). The implementation was verified before
+interpreting these: the tests check the spectral derivative against
+band-limited analytic data and against an independent FD derivative at its
+derived truncation order, and check the assembled J·U' against an independent
+pointwise/DFT application of r I − (1+∂xx)² + diag(g). The earlier claim that
+‖J U'‖ < 1e-9 at the working resolution was a false exact-null assertion and
+has been replaced by this measured convergence-based characterization.
 
 ## Algorithms
 
@@ -198,11 +226,15 @@ folds or stability.
 * `failures.csv` — every failed nonlinear solve / corrector attempt / guard
   rejection, with context (stage, tag, step, attempt, ds, residual, reason).
 * `patterns_summary.toml` — reproducibility metadata: Julia version, machine,
-  timings (queue/setup/discovery/continuation/mesh/io/total), all seeds,
+  timings (queue/setup/stages/internal/total with an explicit scope note; the
+  supervisor-captured process wall time is authoritative), all seeds,
   tolerances, thresholds, counts, fold numbers vs the Galerkin estimate,
-  per-family discovery tallies, morphology-vs-topology evidence, and an
+  per-family discovery tallies, morphology-vs-topology evidence, the measured
+  `[phase_mode]` defect table, and an
   explicit scope statement (no atlas, no 2D, no snaking claims, no full-space
   stability claims).
+* `runs/` — captured stdout of the executed test and smoke runs, committed
+  for in-repo provenance.
 
 See `results/03-patterns/README.md` for the exact column schemas.
 
@@ -235,7 +267,8 @@ compilation.
 | `spectral_operator_expected_spectrum` | assembled dense operator spectrum vs analytic r-(1-k²)² (machine precision); cosine columns are exact eigenvectors; zero-state restricted rates on N=32/64/128: c-coordinate matrix rescales by diag(S'S) (critical mode reads (N/2)r — negative case), mass-normalized rates equal r-(1-k²)² with the critical mode exactly at r (independent expected values, cross-mesh) |
 | `fd_operator_expected_spectrum` | exact FD circulant spectrum; (I+D2) eigenvalues differ from spectral values (negative case) and converge at ratio ≈ 4 |
 | `newton_stationary_and_independent_expected` | residual < tol; rms matches single-mode Galerkin prediction within 8%; zero mean by symmetry; two coexisting states at r = -0.1 with n_pos = 0 vs 1 (mass-normalized rates); FD cross-check residual decreases with h and is genuinely nonzero |
-| `phase_mode_and_removal` | ‖J U'‖/‖U'‖ ≈ 0; full spectrum has exactly one ≈0 eigenvalue; mass-normalized restricted spectrum has none (min rate > 0.05); spectrum invariant under grid-permutation translation (non-vacuous); descriptors translation-invariant (permutation + fractional) |
+| `phase_mode_and_removal` | derivative exact on band-limited data; agrees with an independent FD derivative at its derived O((kh)²) truncation (measured 0.0255 = 1−sin(π/8)/(π/8)); J·U' verified against an independent pointwise/DFT assembly; defect ‖J U'‖/‖U'‖ < 0.05 at N=64 (measured 6.24e-4 — an aliasing quantity, not an exact null); full spectrum has exactly one ≈0 eigenvalue (the discrete phase mode); mass-normalized restricted spectrum has none (min rate > 0.05); spectrum invariant under grid-permutation translation (non-vacuous); descriptors translation-invariant |
+| `phase_mode_resolution_defect` | defect swept over N=32/64/128/256: strictly decreasing 32→64→128 (measured 0.543 → 6.24e-4 → 1.80e-9) and < 1e-6 for N ≥ 128 once all significant nonlinear harmonics fit; N=256 measured at the Newton roundoff floor (1.78e-7, accepted at ‖R‖ ≤ 1e-6 there because the default 1e-9 is below eps·cond(J_even) ≈ 1.3e-8 at that resolution) |
 | `continuation_fold` | ≥ 20 accepted points; fold detected inside (−0.35, −0.12); fold amplitude window; arclength constraint exact at every point; no near-trivial accepted point; up-direction monotone to r_stop, fold-free |
 | `discovery_guards_and_deflation` | trivial probe rejected with reason "trivial"; ≥ 1 new cosk pattern; accepted set rms > 0.05; dedupe detects the undeflated repeat; exact known seed → `known_root_excluded` (no false success at a zero of the undeflated merit); near-known seed excluded or lands on a genuinely new root; any deflated success has true residual at tolerance and is far from every known root |
 | `descriptor_symmetry_and_distinctness` | reflection + fractional-translation invariance (non-vacuous); cos k=1 vs cos k=2 vs sech² bump distinct in kbar/pr/bands |
@@ -246,28 +279,43 @@ compilation.
 | `io_roundtrip` | TOML write/parse roundtrip incl. nested tables, bools, arrays; fallback TOML writer exercised directly; CSV formatting incl. NA for NaN |
 | `rng_and_seeds_determinism` | TinyRNG determinism/difference/range; seed table deterministic, 26 seeds with the recorded family counts |
 
-## Known risks (untested until the parent's first run)
+## Known limitations (measured where noted)
 
-1. **First execution**: nothing here has been run; a syntax/API slip is
-   possible despite the conservative stdlib-only style. The tests are the
-   first discriminator.
-2. **Deflation changes discovery basins**: with root-removing deflation, some
-   seeds that would find a known root now fail (recorded); exact and near
-   known roots are excluded explicitly (`known_root_excluded`). Discovery
-   counts may be smaller than the undeflated run would give; failures.csv
-   shows why.
-3. **Continuation near the pitchfork**: the bordered system degenerates at the
-   pitchfork; the trivial-approach guard terminates before that, but step
-   halvings near the end are expected and logged.
-4. **Fold estimate accuracy** is step-size limited (three-point parabola);
-   the mesh table shows its convergence but it is not a refined value.
-5. **Tolerance windows** in tests (fold window, Galerkin rms within 8%,
-   FD-residual bounds, ratio windows [3.4, 4.6]) were chosen with margins
-   from hand analysis; if a window is violated by the first run, that is a
-   finding to investigate, not to silence.
-6. **Localized states may not exist** at r ∈ {-0.10, -0.20} for this
-   equation/parameter set — the honest outcome is whatever discovery records.
-7. **Restriction scope**: the reflection-symmetric restriction excludes
+1. **Executed and validated (2026-10-20)**: tests 208/208 passed, smoke
+   exit 0, artifacts committed under `results/03-patterns/` with logs and
+   provenance. Remaining numbers below are the recorded facts and limits of
+   the executed configuration.
+2. **N=256 Newton roundoff floor (measured)**: the absolute tolerance
+   ‖R‖ ≤ 1e-9 is below the achievable floor eps·cond(J_even) ≈ 1.3e-8 at
+   N=256 (cond ≈ 4.2e6 from the critical-mode vs Nyquist eigenvalue spread;
+   the solve stalls at 1.297e-8 with `no_descent` while the iterate is an
+   excellent solution, pointwise residual ~1e-10). The phase-defect sweep
+   therefore accepts ‖R‖ ≤ 1e-6 for that measurement point only; all
+   resolutions used elsewhere (N ≤ 128) converge under the default
+   tolerance. The N=256 defect entry (1.78e-7) is floor-limited, not
+   aliasing-limited.
+3. **Deflation changes discovery basins (measured)**: with root-removing
+   deflation, seeds that would re-find known roots fail instead — the first
+   run recorded 38 `no_descent` and 3 `known_root_excluded` rows. At r = −0.1
+   the A=1.2 cosk seed failed after P_small was found (basin deflected), and
+   the A=0.7 seed found P_large; at r = −0.2, A=0.35 found P_small and A=1.2
+   found P_large. Counts are deflated-run counts; failures.csv shows why.
+4. **Continuation near the pitchfork**: the bordered system degenerates at
+   the pitchfork; the trivial-approach guard terminates before that (both
+   fold-study directions terminated with `trivial_approach` in the run),
+   with step halvings expected and logged near the end.
+5. **Fold estimate accuracy** is step-size limited (three-point parabola):
+   measured agreement across meshes is excellent for this branch
+   (−0.225018 / −0.2250098 / −0.2250098 at N=32/64/128, and −0.224978
+   from the small-seed starts), but the estimate is not a bisection-refined
+   value.
+6. **Tolerance windows** in tests were all validated by the executed suite;
+   any future violation is a finding to investigate, not to silence.
+7. **Localized states**: none were discovered at r ∈ {−0.10, −0.20} in the
+   executed run (localized seeds: 0/8 accepted at −0.1; 2/8 converged to the
+   trivial state at −0.2 and were rejected). This is recorded absence under
+   the fixed seed table, not evidence of nonexistence.
+8. **Restriction scope**: the reflection-symmetric restriction excludes
    solutions with no even translate (e.g. asymmetric superpositions) and does
    not identify general translations; absence of such states in the outputs
    is a scope limitation of the search, never evidence of nonexistence.

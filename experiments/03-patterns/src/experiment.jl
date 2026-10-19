@@ -131,6 +131,7 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
     fold_rows = Vector{Vector{Any}}()
     mesh_stats = Dict{String,Any}()
     fin_sols = Dict{String,Any}()
+    large_by_N = Dict{Int,Any}()
     mesh_seeds = [("large", maximum(cfg.seedA_cos)), ("small", minimum(cfg.seedA_cos))]
     for (label, A) in mesh_seeds
         sols = Vector{Any}(undef, length(Ns_mesh))
@@ -140,6 +141,9 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
             u0 = [A * cos(1.0 * d.x[j]) for j in 1:N]
             res = newton_even(d, cfg, to_coeffs(d, u0), cfg.r_fix)
             sols[i] = (N=N, d=d, res=res)
+            if label == "large"
+                large_by_N[N] = sols[i]
+            end
             if !res.converged
                 okall = false
                 record!(fl, Any["mesh", "seed_$(label)_A$(A)_N$(N)", "-", cfg.r_fix, N,
@@ -218,6 +222,35 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
         end
     end
     mesh_stats["morphology_vs_topology"] = mvt
+    # phase-mode defect sweep (see spectrum.jl): ||J U'||/||U'|| is a
+    # resolution-dependent aliasing quantity of the undealiased collocation
+    # discretization - exposed here per resolution instead of claimed as an
+    # exact null. Reuses the large-seed mesh solutions; adds N = 256. At
+    # N = 256 the absolute Newton tolerance 1e-9 sits below the measured
+    # roundoff floor (stall at ||R|| ~ 1.3e-8; cond(J_even) ~ 4e6), so the
+    # sweep accepts ||R|| <= 1e-6 for this measurement point only.
+    pd_ns = Int[]
+    pd_vals = Float64[]
+    for N in vcat(Ns_mesh, [256])
+        if haskey(large_by_N, N)
+            s = large_by_N[N]
+            if s.res.converged || s.res.residual <= 1.0e-6
+                push!(pd_ns, N)
+                push!(pd_vals, phase_mode_defect(s.d, cfg, s.res.c, cfg.r_fix))
+            end
+        else
+            dN = Discretization(L, N)
+            u0N = [maximum(cfg.seedA_cos) * cos(1.0 * dN.x[j]) for j in 1:N]
+            resN = newton_even(dN, cfg, to_coeffs(dN, u0N), cfg.r_fix)
+            if resN.converged || resN.residual <= 1.0e-6
+                push!(pd_ns, N)
+                push!(pd_vals, phase_mode_defect(dN, cfg, resN.c, cfg.r_fix))
+            else
+                record!(fl, Any["phase_mode", "defect_N$(N)", "-", cfg.r_fix, N,
+                                "-", "-", "-", resN.residual, "newton_" * resN.reason])
+            end
+        end
+    end
     mesh_seconds = (time_ns() - t0) / 1.0e9
 
     # ---- stage 4: artifacts ----
@@ -233,7 +266,14 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
     write_csv(joinpath(results_dir, "failures.csv"), FAILURES_HEADER, fl.rows)
     io_seconds = (time_ns() - t0) / 1.0e9
 
-    total_seconds = (time_ns() - t_start) / 1.0e9
+    # Timing accounting: internal_seconds is the run_smoke call only (it
+    # includes first-call JIT compilation of the methods each stage invokes);
+    # setup_seconds covers module include + `using` measured by the script;
+    # total_seconds = setup + internal so it is comparable with the process
+    # wall time. Interpreter startup/exit remains excluded; the supervisor's
+    # captured process wall time is the authoritative end-to-end figure.
+    internal_seconds = (time_ns() - t_start) / 1.0e9
+    total_seconds = setup_seconds + internal_seconds
 
     # ---- summary ----
     summary = Dict{String,Any}()
@@ -318,7 +358,15 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
         "continuation_seconds" => continuation_seconds,
         "mesh_seconds" => mesh_seconds,
         "io_seconds" => io_seconds,
+        "internal_seconds" => internal_seconds,
         "total_seconds" => total_seconds,
+        "scope_note" => "stage timings include first-call JIT compilation of the methods they invoke; setup_seconds covers module load; total_seconds = setup + internal (interpreter startup/exit excluded); the supervisor-captured process wall time is authoritative",
+    )
+    summary["phase_mode"] = Dict{String,Any}(
+        "Ns" => pd_ns,
+        "JUprime_over_Uprime" => [fmt_val(v) for v in pd_vals],
+        "note" => "relative phase-direction residual ||J U'||/||U'|| of the full-space collocation linearization: U' is an exact null vector of the continuous problem, but the undealiased collocation nonlinearity preserves only grid shifts, so the defect is a resolution-dependent aliasing quantity (dominated by the first nonlinear harmonic past the Nyquist limit), not an exact null; the full-space spectrum still contains exactly one near-zero eigenvalue",
+        "n256_note" => "at N = 256 the absolute Newton tolerance 1e-9 is below the measured roundoff floor (cond(J_even) ~ 4e6, stall at ||R|| ~ 1.3e-8), so that measurement point accepts ||R|| <= 1e-6 (pointwise residual ~1e-10); all other resolutions converge under the default tolerance",
     )
     summary["failures"] = Dict{String,Any}("n_logged" => length(fl.rows))
     summary["scope"] = Dict{String,Any}(
