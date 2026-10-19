@@ -1,0 +1,27 @@
+min_absdiff_no_boundaries_vs_fd_h1e-4_n4000 = 0.11606070473596365
+note = "analytic Leibniz adjoint (differentiation under the integral at fixed curve parameter u + explicit moving-window-endpoint terms u_edge'(θ) = -(∂p/∂θ)/(∂p/∂u)) vs central FD of Ψ with window intersections recomputed per perturbed θ. The no-boundaries variant differs from FD by 0.1-0.3 (and flips gradient signs in the measured cases): window-endpoint motion is not a small correction. FD-step and quadrature sweeps separate FD truncation (shrinks with h) from quadrature error (shrinks with n)."
+ok = true
+theta = [1.0, -1.0]
+worst_absdiff_adjoint_vs_fd_h1e-4_n4000 = 8.161469972067792e-10
+
+[windows."win_-0.6_1.6"]
+Psi = 0.5321181244596529
+boundary_L = [2.746539258614726, 4.999030962756564]
+boundary_N = [0.8116778094416242, 1.4206320556210943]
+grad_adjoint = [-0.11037768584263577, -0.03776916455713304]
+grad_no_boundaries = [0.021438793543663803, 0.21365837842103544]
+interior_L = [-0.524542918494125, -3.660465452087635]
+interior_N = [-0.17343363057819394, -0.8945448177476301]
+max_absdiff_vs_fd = 8.161469972067792e-10
+min_absdiff_vs_fd_no_boundaries = 0.13181647916127687
+
+[windows."win_-2.0_2.0"]
+Psi = 0.4576532652279087
+boundary_L = [3.0855225720309996, 7.141738858117369]
+boundary_N = [0.6265488408350249, 1.4502075738031375]
+grad_adjoint = [-0.0747495778477238, -0.020488556356492816]
+grad_no_boundaries = [0.041311127036423714, 0.2481451115625248]
+interior_L = [-0.8876198504117226, -5.785623877785401]
+interior_N = [-0.12660998121484562, -0.9682528168409812]
+max_absdiff_vs_fd = 7.488366489394327e-10
+min_absdiff_vs_fd_no_boundaries = 0.11606070473596365

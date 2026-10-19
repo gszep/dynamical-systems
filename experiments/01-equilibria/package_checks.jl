@@ -31,8 +31,15 @@ const BI = BifurcationInference
 include(joinpath(@__DIR__, "src", "EquilibriaProbes.jl"))
 using .EquilibriaProbes
 
-const RESULTS = joinpath(@__DIR__, "..", "..", "results", "01-equilibria")
-mkpath(RESULTS)
+# --out-dir DIR: write artifacts to DIR (default: committed results directory)
+function parse_outdir(default)
+    for i in 1:length(ARGS)-1
+        ARGS[i] == "--out-dir" && return ARGS[i+1]
+    end
+    return default
+end
+const RESULTS = mkpath(parse_outdir(joinpath(@__DIR__, "..", "..", "results", "01-equilibria")))
+const INJECT_FAILURE = any(a -> a == "--inject-failure", ARGS)
 
 "SN folds via probe augmented Newton from analytic warm starts."
 function sn_folds_probes(θ)
@@ -198,6 +205,7 @@ if length(preds_p) == length(preds_probe)
         gerr > 1e-3 && push!(failures, "gradient mismatch pkg vs probe: $gerr")
     else
         push!(out, "pipeline_grad_absdiff" => "dimension mismatch (|P| != |D| in package run: measure term active)")
+        push!(failures, "gradient dimension mismatch: pkg |P| != probe |P| (invalid required output)")
     end
 else
     push!(out, "pipeline_predictions_absdiff" =>
@@ -225,22 +233,33 @@ tiny["stdout"] = read(rd, String)
 tiny["seconds"] = round(time() - t_tiny; digits=3)
 if traj !== nothing
     tiny["trajectory_theta"] = [collect(t) for t in traj]
-    # final loss from the last θ
-    L_last = try
+    # final loss from the last θ — exceptions and NaN are FAILURES, not
+    # silently-recorded values (they invalidate a required output)
+    try
         ss = deflationContinuation(F_sn, X.roots, (θ=traj[end], p=minimum(X.parameter)), hyper)
-        loss(F_sn, ss, collect(traj[end]), X)
-    catch
-        NaN
+        L_last = loss(F_sn, ss, collect(traj[end]), X)
+        tiny["final_loss"] = L_last
+        isnan(L_last) && push!(failures, "tiny train! final loss is NaN (invalid required output)")
+    catch e
+        tiny["final_loss"] = "exception: $(sprint(showerror, e))"
+        push!(failures, "tiny train! final loss evaluation threw: $(sprint(showerror, e))")
     end
-    tiny["final_loss"] = L_last
+else
+    push!(failures, "tiny train! returned no trajectory")
 end
 push!(out, "tiny_train" => tiny)
+tiny["status"] == "failed" &&
+    push!(failures, "tiny train! failed (required run): $(get(tiny, "error", "unknown error"))")
 
 # capture first loss line as a check the loop actually optimised
 m = match(r"Iteration 1\tLoss = ([-\d.eENaI+]+)", tiny["stdout"] isa AbstractString ? tiny["stdout"] : "")
 push!(out, "tiny_train_first_loss" => (m === nothing ? "not found" : m[1]))
 
 # ================= report =================
+# --inject-failure: controllable regression proving the failure path exits
+# nonzero (run: package_checks.jl --inject-failure; expect exit code 1)
+INJECT_FAILURE && push!(failures,
+    "INJECTED FAILURE (--inject-failure self-test): verifies exit(1) propagation")
 out["ok"] = isempty(failures)
 out["failures"] = failures
 out["package_version"] = string(pkgversion(BifurcationInference))

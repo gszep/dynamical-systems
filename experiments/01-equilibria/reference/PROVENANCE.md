@@ -17,9 +17,13 @@
     resolves to the identical source snapshot in `reference/upstream-534ee7c…/`;
     no substitution occurred.
 * Snapshot in this tree: `reference/upstream-534ee7c23af16d542a248f181f5e6be7056e30b6/`
-  (`Project.toml`, `README.md`, `src/{BifurcationInference,Objectives,Gradients,Structures,Utils}.jl`)
+  containing `Project.toml`, `README.md`, `LICENSE` (MIT, Copyright (c) 2021
+  Gregory Szep — preserved verbatim from the pinned commit; no external
+  licensing claim is made here beyond reproducing the upstream file) and
+  `src/{BifurcationInference,Objectives,Gradients,Structures,Utils}.jl`,
   fetched from `raw.githubusercontent.com` at the pinned commit on 2026-10-19
-  and read in full before any test was written.
+  (source files) and 2026-10-20 (LICENSE), and read in full before any test
+  was written.
 
 ## Paper (parameter inference with bifurcation diagrams)
 
@@ -34,8 +38,13 @@
   Supp B `eq:conditions`/`eq:determinant`/`eq:measure-conditions` (B.1/B.6),
   Supp C Leibniz rule + normal deformation (C.8),
   Supp D `eq:measure-tanh` (D.1), Supp E `eq:hopf-measure` (E.1).
-* Paper macro `\Det := |∂F_θ/∂u|` (absolute determinant) — the released code
-  uses the raw `det(∂Fu)` in `distance`/`velocity`; noted in the probes.
+* Paper macro Det (rendered with bars around ∂F_θ/∂u) is DETERMINANT
+  notation — the bars denote the determinant of the Jacobian matrix, NOT an
+  absolute value. Supp B writes Det = Πₙ λₙ (product of eigenvalues), i.e.
+  the SIGNED determinant. The released code's `det(∂Fu)` is the same signed
+  determinant — the two are consistent; no signed/absolute discrepancy
+  exists (an earlier version of this file claimed one; corrected 2026-10-20).
+  The outer bars in Eq (5) are the absolute value of the ratio Det/(d Det/ds).
 
 ## Runtime
 

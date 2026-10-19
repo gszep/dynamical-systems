@@ -165,21 +165,106 @@ end
         @test 0 < φ_code(SNModel(), z1, θ) < φ_e1(SNModel(), z1, θ)
     end
 
-    @testset "p6 empty/exact target semantics (code reading)" begin
-        # released code semantics: empty predictions → E = 1 (init), ∇E = 0
+    @testset "jacobian contracts vs FD (every column, eq + off-eq)" begin
+        # Catches reshape/row-order bugs (e.g. the FHN ∂F/∂θ column-major bug
+        # fixed 2026-10-20: ∂F/∂a must be [0, 1/τ]).
+        fdcol(f, x, k; h=1e-6) =
+            (f(x .+ h*[j == k for j in eachindex(x)]) .-
+             f(x .- h*[j == k for j in eachindex(x)])) ./ (2h)
+        θf = [0.7, 0.8, 25.0]
+        cases = [
+            (SNModel(), [2.5, -1.0], [sn_fold([2.5, -1.0], +1)...], [0.7, 1.3]),
+            (PFModel(), [0.5, -1.0], [pf_fold([0.5, -1.0])...], [0.6, 0.2]),
+            (FHNModel(), θf, curve_points(FHNModel(), 0.5, θf),
+             [0.3, -0.4, 1.1]),
+        ]
+        for (m, θ, z_eq, z_off) in cases
+            for z in (z_eq, z_off)
+                for j in eachindex(z)
+                    @test fdcol(zz -> F(m, zz, θ), z, j) ≈ Fz(m, z, θ)[:, j] atol=1e-6
+                end
+                for k in eachindex(θ)
+                    @test fdcol(tt -> F(m, z, tt), θ, k) ≈ Fθ(m, z, θ)[:, k] atol=1e-6
+                end
+                for j in eachindex(z)
+                    @test fdcol(zz -> det_state(m, zz, θ), z, j) ≈
+                          det_z(m, z, θ)[1, j] atol=1e-6
+                end
+                for k in eachindex(θ)
+                    @test fdcol(tt -> det_state(m, z, tt), θ, k) ≈
+                          det_θ(m, z, θ)[1, k] atol=1e-6
+                end
+            end
+        end
+    end
+
+    @testset "p10 integrand adjoint units: sn_dΦint vs numeric θ-partial" begin
+        θ = [1.0, -1.0]
+        h = 1e-6
+        Φ(u, θv) = sn_φ_eq5_u(u, θv)*sn_ν(u, θv)
+        for u in (-1.2, -0.5, 0.3, 1.0, 1.4)
+            for k in 1:2
+                θp = copy(θ); θp[k] += h
+                θm = copy(θ); θm[k] -= h
+                @test abs((Φ(u, θp) - Φ(u, θm))/(2h) - sn_dΦint(u, θ, k)) < 1e-8
+            end
+        end
+    end
+
+    @testset "p10 probe adjoint: ∇Ψ_sn vs FD of Ψ (moving boundaries)" begin
+        for (pmin, pmax) in ((-2.0, 2.0), (-0.6, 1.6))
+            θ = [1.0, -1.0]
+            adj = ∇Ψ_sn(θ, pmin, pmax; n=4000)
+            noB = ∇Ψ_sn(θ, pmin, pmax; n=4000, boundaries=false)
+            for k in 1:2
+                h = 1e-4
+                θp = copy(θ); θp[k] += h
+                θm = copy(θ); θm[k] -= h
+                fd = (simpson_Ψ(SNModel(), θp, φ_eq5, pmin, pmax; n=4000).Ψ -
+                      simpson_Ψ(SNModel(), θm, φ_eq5, pmin, pmax; n=4000).Ψ)/(2h)
+                @test abs(fd - adj.∇[k]) < 1e-6          # adjoint == FD
+                @test abs(fd - noB.∇[k]) > 0.05          # boundary terms required
+            end
+            # the boundary (window-endpoint) terms are structurally sizeable at
+            # the numerator/denominator level, not a small correction
+            @test maximum(abs.(adj.boundary[1])) > 0.5
+        end
+    end
+
+    @testset "p6 empty/exact/multiprediction target semantics" begin
+        # empty predictions: released code errors() returns 1 for ANY targets
+        # (empty-product init) and its error-term gradient is exactly zero;
+        # the paper Eq (4) is undefined there (NaN recorded).
         @test E_code(Float64[], [1.0, 3.0]) == 1.0
-        @test E_code(Float64[], [-50.0, 50.0]) == 1.0    # blind to targets
+        @test E_code(Float64[], [-50.0, 50.0]) == 1.0
         @test ∇E_code(Float64[], Vector{Vector{Float64}}(), [1.0, 3.0]) == [0.0, 0.0]
-        @test E_code([1.5], Float64[]) == 0.0            # empty targets → 0
-        # paper Eq (4) is undefined at |P| = 0 (recorded as NaN)
+        @test E_code([1.5], Float64[]) == 0.0
         @test isnan(E_paper(Float64[], [1.0, 3.0]))
-        # exact match: E = 0 for both; gradients NaN (0·Inf), expected
         v = velocity(SNModel(), [sn_fold([2.5, -1.0], +1)...], [2.5, -1.0])
+        # C1: code objective, single prediction, exact match. E = (p−t)² is
+        # SMOOTH there with true gradient 0; the released factored gradient
+        # form gm2·2v/(p−t) produces NaN (0·Inf) — a REMOVABLE IMPLEMENTATION
+        # DEFECT of the factored expression, not a mathematical singularity.
         @test E_code([1.5], [1.5]) == 0.0
-        @test E_paper([1.5], [1.5]) == 0.0
         @test any(isnan, ∇E_code([1.5], [v], [1.5]))
+        @test 2*(1.5 - 1.5)*v == zeros(2)                      # independent unfactored derivative
+        @test norm(∇E_code([1.5 + 1e-6], [v], [1.5]) - 2e-6*v) < 1e-9  # factored → true limit 2dv
+        @test abs(E_code([1.5 + 2e-3], [1.5]) - 4*E_code([1.5 + 1e-3], [1.5])) < 1e-12
+        # C2: paper objective, single prediction, exact match: |p−t| has a
+        # GENUINE kink — one-sided gradients ±v, undefined at the match
+        @test E_paper([1.5], [1.5]) == 0.0
+        @test norm(∇E_paper([1.5 + 1e-6], [v], [1.5]) - v) < 1e-6
+        @test norm(∇E_paper([1.5 - 1e-6], [v], [1.5]) + v) < 1e-6
         @test any(isnan, ∇E_paper([1.5], [v], [1.5]))
-        # near match: paper |∇| → |v| (constant), code |∇| ~ 2|v|d (vanishes)
+        # C3: multiprediction, one prediction matched, one at distance A:
+        # paper E ~ (|d|·A)^{1/2} has an UNBOUNDED gradient (∝ |d|^{-1/2});
+        # code E = |d|·A has a bounded kink (subgradient ±A·v)
+        A = 2.0; t = 1.5
+        g3 = norm(∇E_paper([t + 1e-3, t + A], [v, v], [t]))
+        g6 = norm(∇E_paper([t + 1e-6, t + A], [v, v], [t]))
+        @test g3/g6 ≈ sqrt(1e-6/1e-3) rtol=0.03
+        @test norm(∇E_code([t + 1e-9, t + A], [v, v], [t]) - A*v) < 1e-6
+        # near-singleton approach behaviour (recorded in p6_exact_approach.csv)
         @test norm(∇E_paper([1.5 + 1e-9], [v], [1.5])) ≈ norm(v) rtol=1e-6
         @test norm(∇E_code([1.5 + 1e-9], [v], [1.5]))/(1e-9) ≈ 2*norm(v) rtol=1e-4
     end

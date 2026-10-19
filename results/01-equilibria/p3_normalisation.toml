@@ -1,4 +1,7 @@
-note = "normalisation axis isolated: with the SAME per-point measure the released code's branch sum equals the paper's Ψ times total arclength L (Φ = Ψ·L). Since log enters the loss multiplied by (|P|-|D|), dropping the normalisation can flip the sign of the count-term contribution whenever L ≶ 1/Ψ."
+M_actual_pf = 1.4703203119819557
+M_actual_sn = 1.3373626988950273
+labelling_correction = "the earlier version of this artifact labelled the unnormalised indicator-window φ_code sum as 'the code measure term'; it is a normalization-only surrogate. The actual released per-point measure multiplies by the erf window; its continuum value is M_actual_released_*."
+note = "normalisation axis isolated: with the SAME per-point measure the unnormalised branch sum equals the paper's Ψ times total arclength L (Φ = Ψ·L, verified to quadrature error). Since log enters the loss multiplied by (|P|-|D|), the sign of the count-term contribution depends on whether the summed measure exceeds 1: the paper's Ψ is normalised into [0,1] (log Ψ ≤ 0 always), the released sum is not. Sign flips below are reported for the normalization-only surrogate AND for the actual released functional (erf window times φ_code; stdlib erf approximation |err| ≤ 1.5e-7, full level set in window — the released value additionally depends on which branches deflated continuation discovers)."
 ok = true
 phi_equals_psi_times_L_relerr = 1.6943046736924663e-6
 psi_refinement_absdiff = 5.551115123125783e-16
@@ -6,18 +9,24 @@ total_arclength_sn_window = 11.161360119177026
 window = [-2.0, 2.0]
 
 [P_gt_D]
-code_term = 0.3025566420384731
-paper_normalisation_code_phi_term = -2.109906778938589
+actual_released_term = 0.29069953948688093
+paper_normalisation_code_phi_surrogate = -2.109906778938589
 paper_term = -1.0599063214903608
-sign_flip_vs_paper = true
+sign_flip_actual_vs_paper = true
+sign_flip_surrogate_vs_paper = true
+unnormalised_surrogate = 0.3025566420384731
 
 [P_lt_D]
-code_term = -0.010781703644433784
-paper_normalisation_code_phi_term = 1.8180228414160997
+actual_released_term = -0.38548027636149174
+paper_normalisation_code_phi_surrogate = 1.8180228414160997
 paper_term = 0.9567932582550558
-sign_flip_vs_paper = true
+sign_flip_actual_vs_paper = true
+sign_flip_surrogate_vs_paper = true
+unnormalised_surrogate = -0.010781703644433784
 
 [empty_targets]
-code_loss = 0.6051132840769462
+actual_released_loss = 0.5813990789737619
 paper_loss = -2.1198126429807216
-sign_flip_vs_paper = true
+sign_flip_actual_vs_paper = true
+sign_flip_surrogate_vs_paper = true
+unnormalised_surrogate_loss = 0.6051132840769462

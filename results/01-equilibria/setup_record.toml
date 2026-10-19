@@ -31,10 +31,22 @@ setup_compute_seconds = 575
 setup_note = "setup FINISHED: `using BifurcationInference` succeeded (load 7.2 s), inside the 30-minute total-setup bound"
 
 [execution_timings_seconds]
-note = "final validated runs; earlier development iterations are not counted as execution"
-tests_jl = 22.4
-main_jl = 29.4
-package_checks_jl = 37.3
+note = "each timing is labelled by the actual invocation it came from; 'reported' = in-process printed/test-summary value, 'wall' = shell date-delta including process startup. No values were interpolated or blended across invocations."
+
+[execution_timings_seconds.invocation_1_first_validated_pass_2026-10-19]
+tests_jl_reported = 22.4
+main_jl_reported = 29.4
+package_checks_jl_reported = 37.3
+note = "first pass in which all three entry points exited 0 with the then-current code; these values were the ones recorded in the first commit's setup_record"
+
+[execution_timings_seconds.invocation_2_final_validation_sweep_2026-10-20]
+tests_jl_reported = 14.6
+tests_jl_wall = 16
+main_jl_reported = 30.5
+main_jl_wall = 33
+package_checks_jl_reported = 44.2
+package_checks_jl_wall = 59
+note = "full clean rerun of the same code immediately before the first commit; wall = shell date deltas around each command"
 
 [blockers_encountered]
 "1" = "Pkg.add by URL + rev failed: Julia LibGit2 clone of github.com aborted with `GitError ... user cancelled credential request` (git CLI and HTTPS raw access worked fine). Worked around by adding the registered version 0.1.4 after verifying that its registry tree hash equals the tree of the pinned commit — byte-identical source, no substitution."

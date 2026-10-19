@@ -54,9 +54,10 @@ These differ in *detector* and in *normalisation*, not merely by a scale:
   released form decays exponentially away from crossings (fast), whereas Eq (5)
   and E.1 decay algebraically (slow, by design: "non-zero gradients far from
   bifurcations").
-* Normalisation: with identical φ, released Φ = Ψ·L exactly (verified to
-  quadrature error 1e-5 across independent quadratures); L = total windowed
-  arclength (≈ 7.6 here) — see below for the behavioural consequence.
+* Normalisation: with identical φ, the unnormalised sum equals Ψ·L exactly
+  (verified to quadrature error 1e-5 across independent quadratures);
+  L = total windowed arclength (≈ 7.6 here) — see below for the behavioural
+  consequence.
 
 ## Results (probe by probe; full data in results/01-equilibria/)
 
@@ -73,31 +74,49 @@ These differ in *detector* and in *normalisation*, not merely by a scale:
   equals the analytic normal component of the true curve displacement to
   < 1e-12 and is purely normal (⟂ tangent), as Supp C claims.
 * **p3 normalisation** — Ψ is discretisation-invariant (< 1e-8 under 8×
-  refinement, after splitting the |·|-kink points); the released unnormalised
-  Φ equals Ψ·L. **Measured sign consequence**: the count-term contribution
+  refinement, after splitting the |·|-kink points); the unnormalised branch
+  sum equals Ψ·L. **Measured sign consequence**: the count-term contribution
   (|P|−|D|)·log(measure) has *opposite signs* between the paper (log Ψ ≤ 0
-  always) and the released code (log Φ > 0 whenever Φ = Ψ·L > 1, which holds
-  for any realistically long branch) — for both |P|>|D| and |P|<|D| and for
-  the empty-target loss. The dropped normalisation is therefore not cosmetic.
+  always) and the released objective — measured both for the
+  normalisation-only surrogate (indicator window, code φ) and for the
+  **actual released functional** (erf window × φ_code continuum value
+  M_actual: 1.337 for the SN case, 1.470 for the PF case — both > 1, so
+  log M_actual > 0 while log Ψ < 0) — for |P|>|D| (−1.06 vs +0.29),
+  |P|<|D| (+0.96 vs −0.385) and the empty-target loss (−2.12 vs +0.58).
+  The sign flip follows whenever the summed measure exceeds 1
+  (equivalently Ψ·L > 1); that condition held in all measured cases.
+  No claim is made that it holds universally.
 * **p4 distance vs squared distance** — per-target identity gm2 = gm² exact;
   but the arithmetic mean over targets upweights far targets (E_code = 1.25 ≠
   E_paper² = 1.00 for preds {1.5}, targets {1,3}); the paper objective has a
   **flat minimiser interval** between two targets (gradient exactly 0 inside),
   the code objective a unique midpoint minimiser (gradient −1 at 1.5); p-unit
-  rescaling multiplies E_paper by 10 but E_code by 100, changing the relative
-  weight against the scale-free log-measure term.
+  rescaling multiplies E_paper by 10 but E_code by 100 (the measure term is
+  not p-scale-invariant either — the erf window width and the sinh argument
+  carry p-units — so unit choices shift the error-vs-measure balance in both
+  objectives; no scale-invariance claim is made for either term).
 * **p5 measure separation** — see above; plus the B.6 spurious-maximum family
   F = p + u + (K/3)u³ (det = 1+Ku² ≥ 1, **no crossing exists**): all four
   measure forms approach 1 (Eq 5: 0.998 at K = 10⁶) near u ≈ K^(−1/2) where
   d(det)/ds is steep — B.6 confirmed, and **the D.1 tanh fix does not
   suppress it in this family** (measured values, not gradients).
-* **p6 empty/exact targets** — empty prediction set: released `errors` returns
+* **p6 empty/exact/multiprediction targets** — empty prediction set: released `errors` returns
   **1 for any targets** (empty-product init; blind to target location; error-term
   gradient exactly zero — only the measure term can move θ); paper Eq (4) is
-  undefined there (NaN recorded; convention gap). Exact match: both objectives
-  are 0 and both gradient formulas give **NaN** (0·Inf structure) — expected
-  singularity. Near match: the paper gradient tends to |v| (persistent), the
-  code gradient vanishes like 2|v|d.
+  undefined there (NaN recorded; convention gap). **Corrected classification of
+  the exact-match cases** (an earlier version conflated them): (C1) the code
+  objective with a single matched prediction, E = (p−t)², is *smooth* at the
+  match with true gradient 0 — the released **factored** gradient form
+  gm2·2v/(p−t) returns NaN (0·Inf), a **removable implementation defect** of
+  the factored expression, not a mathematical singularity (near the match the
+  same form tracks the true derivative 2dv; the independent unfactored
+  derivative 2(p−t)·v is exactly 0). (C2) the paper objective |p−t| has a
+  **genuine kink** at the match (one-sided gradients ±v). (C3) multiprediction
+  with one matched and one far prediction: the paper E ~ (|d|·A)^{1/2} has an
+  **unbounded** gradient (∝ |d|^{−1/2}, verified: 840 vs 2.8 across d = 1e-6..0.1
+  with |g|·√d constant to 5%), while the code E = |d|·A is genuinely
+  nonsmooth but **bounded** (subgradient → ±A·v, identity verified to 1e-9) —
+  the structure behind the p8 fixed-step behaviours.
 * **p7 degenerate crossings** — SN cusp (θ₁→0): cond(∂G/∂z) grows, the fold
   velocity vanishes like √θ₁, and for θ₁<0 the folds disappear entirely
   (|P| jumps 0→2 across θ₁=0; central FD across the jump is impossible).
@@ -119,11 +138,47 @@ These differ in *detector* and in *normalisation*, not merely by a scale:
   **flipped the sign of θ₂ and ejected the iterate from the 2-fold regime
   (|P|: 2→0)** — the paper's piecewise-smoothness boundary. (The released
   `train!` stopping rule Loss<0.02 with |P|=|D| would have halted at the
-  transient dip.) The code's squared objective only stalls (E_code ≈ 0.16
-  fixed-η; converges with backtracking); for |P|=|D|=1 it converges to machine
-  precision under fixed step while the paper objective stalls at |δ| ≈ 0.018.
-  Backtracking line search converges everywhere; 8/8 seeded restarts (Mersenne
+  transient dip.) The code's squared objective for |P|=|D|=2 is |δ|·far — a
+  bounded but *non-vanishing* kinked gradient — so fixed-step descent merely
+  stalls at E_code ≈ 0.16 (transient sub-0.02 dips from iteration ≈ 103);
+  for |P|=|D|=1 it is δ² (smooth) and fixed-step descent converges to machine
+  precision (PF) while the paper objective stalls at |δ| ≈ 0.018. Backtracking
+  line search converges everywhere; 8/8 seeded restarts (Mersenne
   Twister, seed 20261019) reach the manifold with target error < 1e-11.
+* **p10 gradient validation (the discriminating check)** —
+  *Probe side (my normalised main-text Ψ gradient, moving boundaries
+  accounted)*: an exact analytic Leibniz adjoint (differentiate under the
+  integral at fixed curve parameter u + explicit moving-window-endpoint terms
+  u_edge'(θ) = −(∂p/∂θ)/(∂p/∂u)) matches central FD of Ψ to **7.6e-10**
+  (both windows, both components; FD-step and quadrature sweeps separate FD
+  truncation from quadrature error). Dropping the window-endpoint terms
+  changes the gradient by **0.29 and flips both component signs**
+  (with: (−0.0747, −0.0205); without: (+0.0413, +0.2481)) — moving
+  branch/window boundaries are not a small correction.
+  *Released package side*: `∇measure` (called **directly** — the |P|=|D| loss
+  path never exercises it) runs and returns finite values
+  G = (0.01382, 0.50752) at θ=(1,−1). Against central FD of the continuum
+  functional it differentiates (M_full = ∫ erf-window·φ_code·ds, exact erf,
+  kink-split Simpson): FD = (0.01491, 0.50676) — **the released adjoint is
+  the correct continuum derivative of its own functional** (gate A pass:
+  |G−FD| = 0.0013 abs; 0.15% relative on the dominant component, 7.3% on the
+  small one). The remaining error is branch-sum quadrature: sweeping the
+  continuation step ds = 0.04 → 0.02 → 0.01 moves G's small component
+  −0.0026 → 0.0138 → 0.0169 toward the continuum value — an O(ds) error
+  consistent with the kinked adjoint integrand at the folds. FD of the
+  **actually returned discrete measure** (fresh deflationContinuation per
+  θ±h) tracks the window-truncated continuum derivative within 0.011
+  (gate B pass) — the discretisation derivative and the continuum derivative
+  agree at these regular settings within the swept tolerances. The
+  branch-truncation/endpoint-omission effect (erf is not exactly zero at the
+  branch cut) is measured negligible here: tail value 3.0e-9, tail gradient
+  ≤ 2e-7. The overdetermined adjoint solve goes through
+  `BifurcationKit.DefaultLS` (`A\b` least squares), consistent with the
+  Moore–Penrose derivation of Supp C.
+  *Package robustness observation*: at θ=(1.2,−0.9) — regular, folds well
+  inside the window — the package's `findRoots` seeded Newton diverges from
+  u≈0.02 at p=−2 and its `@assert` fires ("No roots found"); θ=(1,−1) works.
+  The seeded root search is basin-fragile independently of any degeneracy.
 * **p0/p9 package cross-validation + tiny run** — released `velocity`,
   `errors`, `mean` (empty semantics), `window_function` match my
   reimplementations bit-exactly; `measure` matches to 1.25e-11 (their
@@ -164,25 +219,56 @@ code-consistent reading.
 7. "The manifold check would show E ~ 1e-12" — the √δ tail amplifies
    Newton-level fold residuals (~1e-12) into E ~ 1e-6; tolerance set from the
    measured mechanism, not from the naive expectation.
+8. **(2026-10-20 review round)** "the exact-match gradient NaN is a
+   mathematical singularity" — **corrected**: for the squared objective with
+   a single matched prediction it is a *removable implementation defect* of
+   the released factored expression (the objective is smooth there, true
+   gradient 0); genuine nonsmoothness lives in the unsquared |p−t| kink and in
+   the multiprediction geometric-mean tails.
+9. **(2026-10-20 review round)** my p3 "code measure term" was a
+   **normalisation-only surrogate** (indicator window, code φ): the actual
+   released per-point measure multiplies by the erf window. Relabelled; the
+   actual functional (M_actual = 1.34/1.47 > 1) confirms the sign flips.
+10. **(2026-10-20 review round)** an invented "signed vs absolute determinant
+    discrepancy" between paper and code was **removed**: the paper's \Det bars
+    are determinant notation (Supp B: Det = Π λₙ, the signed determinant),
+    consistent with the released `det(∂Fu)`.
+11. **(2026-10-20 review round)** a latent **column-order bug in my FHN ∂F/∂θ
+    reshape** (∂F/∂a was [0,0] instead of [0,1/τ]) was fixed; no committed
+    artifact was affected (FHN Fθ was never exercised by the earlier probes),
+    and every jacobian column of every model is now FD-tested at equilibrium
+    and off-equilibrium points.
+12. **(2026-10-20 review round)** my own Ψ adjoint initially contained a
+    sign-flipped quotient rule in the integrand partial — **caught by the
+    new integrand-level FD unit test** (mismatch 0.08–0.38 vs FD) and fixed;
+    the final adjoint agrees with FD to 7.6e-10. The unit test is retained.
+13. "The released package's ∇measure is exercised by the pipeline" — it is
+    **not**: with |P|=|D| the loss path switches the measure term off; the
+    gradient had never run in any committed check before p10 called it
+    directly.
 
 ## Remaining blockers / open items (honest limits)
 
 * The package tiny run covers N=1 and 8 iterations only; paper-scale runs
   (toggle switch N=2/M=5 with 800 restarts, E. coli N=4/M=21) were NOT
   attempted (out of overnight scope; each is hours of continuation).
-* The package's `∇measure` (Leibniz/adjoint line-integral gradient) was
-  cross-checked only indirectly (loss/gradient at |P|=|D| where the measure
-  term is OFF); a direct FD validation of the released ∇measure — and of my
-  C.8-based ∇Ψ — is the **next discriminating check** (it exercises the
-  overdetermined least-squares solve in Gradients.jl:21, whose exact
-  equivalence to the C.8 Moore–Penrose form deserves its own test).
+* The released-∇measure validation (p10) covers the N=1 SN model at one
+  regular θ with window [-2,2]; the O(ds) branch-sum error was quantified by
+  sweep but not extrapolated to ds→0, and the 7.3% relative residual on the
+  small component is unexplained beyond that quadrature error. **Next
+  discriminating check**: repeat gate A at ds = 0.005/0.0025 to confirm the
+  O(ds) convergence of the released gradient toward the continuum derivative
+  (and test a second θ and the two-state toggle model, where the overdetermined
+  adjoint solve has N=2).
+* `findRoots` seed fragility (assert fires at regular θ where the seeded
+  Newton diverges, e.g. (1.2,−0.9)) is recorded but not characterised.
 * My probes replace deflated continuation with warm-started augmented Newton
   on known branch structure; they are **independent mathematical probes**, not
   a package substitute — branch discovery robustness (deflation, maxRoots=3)
   is untested here.
 * No CI exists for this repository; all evidence above is from local runs on
   the pinned runtime (hardware/timing record in `runtime.toml` and
-  `setup_record.toml`).
+  `setup_record.toml`; invocation timings are labelled per actual run).
 
 ## Reproduce
 
@@ -191,10 +277,17 @@ JULIA=.tools/julia-1.10.11/bin/julia   # read-only shared binary
 export JULIA_DEPOT_PATH=$PWD/.julia-depot JULIA_NUM_THREADS=1 \
        OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 cd experiments/01-equilibria
-$JULIA tests.jl                          # 101 expected-value tests, exit 0
-$JULIA main.jl                           # probes p1–p8 -> results/01-equilibria/
+$JULIA tests.jl                          # 184 expected-value tests, exit 0
+$JULIA main.jl                            # probes p1–p8, p10 (probe side)
+                                         # -> results/01-equilibria/
 JULIA_NUM_PRECOMPILE_TASKS=2 $JULIA --project=pkgenv package_checks.jl   # p0/p9
+JULIA_NUM_PRECOMPILE_TASKS=2 $JULIA --project=pkgenv gradient_checks.jl  # p10 (package side)
+# all three entry points accept --out-dir DIR so reruns do not overwrite the
+# committed artifacts; package_checks.jl also accepts --inject-failure, which
+# must exit 1 (regression proof of the failure-propagation path).
 ```
 
 `pkgenv/{Project,Manifest}.toml` (committed) record the exact resolution,
-including the KrylovKit 0.7.1 pin.
+including the KrylovKit 0.7.1 pin. The upstream snapshot under `reference/`
+includes the original MIT LICENSE (Copyright (c) 2021 Gregory Szep), preserved
+verbatim; no external licensing claim is made beyond that.

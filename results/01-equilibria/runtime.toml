@@ -1,23 +1,24 @@
 arch = "x86_64"
 blas_config = "LBTConfig([ILP64] libopenblas64_.0.3.23.dylib)"
 cpu_model = "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz"
-date_utc = "2026-10-19T15:08:58.236"
+date_utc = "2026-10-19T15:30:44.382"
 julia_version = "1.10.11"
 logical_cpus = 12
 machine = "x86_64-apple-darwin24.0.0"
 seed = 20261019
-total_seconds = 30.536
+total_seconds = 79.363
 
 [probe_timings_seconds]
-p1_analytic = 0.215
-p2_gradients = 0.039
-p2c_deformation = 0.072
-p3_normalisation = 2.111
-p4_distances = 0.106
-p5_measures = 0.511
-p6_edgecases = 0.147
-p7_degenerate = 0.405
-p8_inference = 5.696
+p10_probe_adjoint = 27.355
+p1_analytic = 0.348
+p2_gradients = 0.044
+p2c_deformation = 0.091
+p3_normalisation = 3.014
+p4_distances = 0.111
+p5_measures = 0.634
+p6_edgecases = 0.18
+p7_degenerate = 0.418
+p8_inference = 9.785
 
 [threads]
 JULIA_NUM_THREADS = 1

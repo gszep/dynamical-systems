@@ -31,7 +31,16 @@ using TOML
 include(joinpath(@__DIR__, "src", "EquilibriaProbes.jl"))
 using .EquilibriaProbes
 
-const RESULTS = joinpath(@__DIR__, "..", "..", "results", "01-equilibria")
+# --out-dir DIR: write artifacts to DIR (default: the committed results
+# directory). Parent reruns should pass a separate --out-dir so committed
+# artifacts are not overwritten.
+function parse_outdir(default)
+    for i in 1:length(ARGS)-1
+        ARGS[i] == "--out-dir" && return ARGS[i+1]
+    end
+    return default
+end
+const RESULTS = parse_outdir(joinpath(@__DIR__, "..", "..", "results", "01-equilibria"))
 mkpath(RESULTS)
 
 function write_toml(name, dict)
@@ -139,79 +148,110 @@ function probe_p3()
     sn = SNModel(); pf = PFModel()
     θsn = [2.5, -1.0]; θpf = [0.5, -1.0]
     pmin, pmax = -2.0, 2.0
-    Ψ1000 = simpson_Ψ(sn, θsn, φ_eq5, pmin, pmax; n=4000)
-    Ψ8000 = simpson_Ψ(sn, θsn, φ_eq5, pmin, pmax; n=32000)
+    Ψ4000 = simpson_Ψ(sn, θsn, φ_eq5, pmin, pmax; n=4000)
+    Ψ32000 = simpson_Ψ(sn, θsn, φ_eq5, pmin, pmax; n=32000)
     Φeq5 = trapz_Φ(sn, θsn, φ_eq5, pmin, pmax; n=2000)
-    L_s = Ψ1000.L
-    id_rel = abs(Φeq5.Φ/Ψ1000.Ψ - L_s)/L_s
+    L_s = Ψ4000.L
+    id_rel = abs(Φeq5.Φ/Ψ4000.Ψ - L_s)/L_s
     Ψcodeφ = simpson_Ψ(sn, θsn, φ_code, pmin, pmax; n=1000)
-    Φcodeφ = trapz_Φ(sn, θsn, φ_code, pmin, pmax; n=2000)
+    # NOTE (corrected labelling): trapz_Φ with bare φ_code under the indicator
+    # window is a NORMALIZATION-ONLY SURROGATE — it isolates the Φ = Ψ·L axis
+    # while keeping the code's per-point detector, but it is NOT the released
+    # objective, whose per-point measure multiplies by the erf window. The
+    # actual released functional is computed separately below (erf-windowed,
+    # via the same integrand w(p)·φ_code; stdlib erf_approx, |err| ≤ 1.5e-7;
+    # the exact-erf package-side cross-check lives in gradient_checks.jl).
+    Φsurrogate = trapz_Φ(sn, θsn, φ_code, pmin, pmax; n=2000)
+    M_actual_sn = M_windowed_code(θsn, pmin, pmax; n=2000, trunc=false)
+    M_actual_pf = M_windowed_code(θpf, pmin, pmax; n=2000, trunc=false)
     up, pp = sn_fold(θsn, +1); um, pm = sn_fold(θsn, -1)
     preds = [pp, pm]                      # |P| = 2
     targets_more = [1.0]                  # |D| = 1
     Ep = E_paper(preds, targets_more); Ec = E_code(preds, targets_more)
-    mt_paper_PgtD = (2 - 1)*log(Ψ1000.Ψ)
-    mt_normfix_PgtD = (2 - 1)*log(Ψcodeφ.Ψ)   # code φ, paper normalisation
-    mt_code_PgtD = (2 - 1)*log(Φcodeφ.Φ)       # code φ, code normalisation
+    mt_paper_PgtD = (2 - 1)*log(Ψ4000.Ψ)
+    mt_normfix_PgtD = (2 - 1)*log(Ψcodeφ.Ψ)   # code φ, paper normalisation (surrogate)
+    mt_surr_PgtD = (2 - 1)*log(Φsurrogate.Φ) # code φ, unnormalised (surrogate)
+    mt_actual_PgtD = (2 - 1)*log(M_actual_sn) # released functional (erf window)
     upf, ppf = pf_fold(θpf)
     Ψpf5 = simpson_Ψ(pf, θpf, φ_eq5, pmin, pmax; n=1000)
     Ψpfc = simpson_Ψ(pf, θpf, φ_code, pmin, pmax; n=1000)
     Φpfc = trapz_Φ(pf, θpf, φ_code, pmin, pmax; n=2000)
     mt_paper_PltD = (1 - 2)*log(Ψpf5.Ψ)
     mt_normfix_PltD = (1 - 2)*log(Ψpfc.Ψ)
-    mt_code_PltD = (1 - 2)*log(Φpfc.Φ)
-    L_paper_notargets = 2*log(Ψ1000.Ψ)
-    L_code_notargets = 2*log(Φcodeφ.Φ)
+    mt_surr_PltD = (1 - 2)*log(Φpfc.Φ)
+    mt_actual_PltD = (1 - 2)*log(M_actual_pf)
+    L_paper_notargets = 2*log(Ψ4000.Ψ)
+    L_surr_notargets = 2*log(Φsurrogate.Φ)
+    L_actual_notargets = 2*log(M_actual_sn)
     rows = [
-        ["Psi_eq5_sn_n1000", Ψ1000.Ψ], ["Psi_eq5_sn_n8000", Ψ8000.Ψ],
-        ["refinement_absdiff", abs(Ψ8000.Ψ - Ψ1000.Ψ)],
+        ["Psi_eq5_sn_n4000", Ψ4000.Ψ], ["Psi_eq5_sn_n32000", Ψ32000.Ψ],
+        ["refinement_absdiff", abs(Ψ32000.Ψ - Ψ4000.Ψ)],
         ["Phi_eq5_trapz", Φeq5.Φ], ["L_simpson", L_s],
-        ["Phi_over_Psi", Φeq5.Φ/Ψ1000.Ψ], ["identity_relerr", id_rel],
-        ["Phi_code_phi", Φcodeφ.Φ], ["Psi_code_phi", Ψcodeφ.Ψ],
-        ["L_code_phi", Ψcodeφ.L],
+        ["Phi_over_Psi", Φeq5.Φ/Ψ4000.Ψ], ["identity_relerr", id_rel],
+        ["Phi_surrogate_indicator_codephi", Φsurrogate.Φ],
+        ["M_actual_released_functional_sn_erf", M_actual_sn],
+        ["M_actual_released_functional_pf_erf", M_actual_pf],
         ["E_paper_PgtD", Ep], ["E_code_PgtD", Ec],
         ["measure_term_paper_PgtD", mt_paper_PgtD],
-        ["measure_term_normfix_PgtD", mt_normfix_PgtD],
-        ["measure_term_code_PgtD", mt_code_PgtD],
+        ["measure_term_normfix_surrogate_PgtD", mt_normfix_PgtD],
+        ["measure_term_unnormalised_surrogate_PgtD", mt_surr_PgtD],
+        ["measure_term_actual_released_PgtD", mt_actual_PgtD],
         ["measure_term_paper_PltD", mt_paper_PltD],
-        ["measure_term_normfix_PltD", mt_normfix_PltD],
-        ["measure_term_code_PltD", mt_code_PltD],
+        ["measure_term_normfix_surrogate_PltD", mt_normfix_PltD],
+        ["measure_term_unnormalised_surrogate_PltD", mt_surr_PltD],
+        ["measure_term_actual_released_PltD", mt_actual_PltD],
         ["loss_paper_notargets", L_paper_notargets],
-        ["loss_code_notargets", L_code_notargets],
+        ["loss_unnormalised_surrogate_notargets", L_surr_notargets],
+        ["loss_actual_released_notargets", L_actual_notargets],
     ]
     write_csv("p3_normalisation.csv", ["quantity", "value"], rows)
-    sigflip_PgtD = sign(mt_paper_PgtD) != sign(mt_code_PgtD)
-    sigflip_PltD = sign(mt_paper_PltD) != sign(mt_code_PltD)
+    sigflip_surrogate_PgtD = sign(mt_paper_PgtD) != sign(mt_surr_PgtD)
+    sigflip_actual_PgtD = sign(mt_paper_PgtD) != sign(mt_actual_PgtD)
+    sigflip_surrogate_PltD = sign(mt_paper_PltD) != sign(mt_surr_PltD)
+    sigflip_actual_PltD = sign(mt_paper_PltD) != sign(mt_actual_PltD)
     write_toml("p3_normalisation.toml", Dict(
         "window" => [pmin, pmax],
-        "note" => "normalisation axis isolated: with the SAME per-point measure the released code's branch sum equals the paper's Ψ times total arclength L (Φ = Ψ·L). Since log enters the loss multiplied by (|P|-|D|), dropping the normalisation can flip the sign of the count-term contribution whenever L ≶ 1/Ψ.",
-        "psi_refinement_absdiff" => abs(Ψ8000.Ψ - Ψ1000.Ψ),
+        "note" => "normalisation axis isolated: with the SAME per-point measure the unnormalised branch sum equals the paper's Ψ times total arclength L (Φ = Ψ·L, verified to quadrature error). Since log enters the loss multiplied by (|P|-|D|), the sign of the count-term contribution depends on whether the summed measure exceeds 1: the paper's Ψ is normalised into [0,1] (log Ψ ≤ 0 always), the released sum is not. Sign flips below are reported for the normalization-only surrogate AND for the actual released functional (erf window times φ_code; stdlib erf approximation |err| ≤ 1.5e-7, full level set in window — the released value additionally depends on which branches deflated continuation discovers).",
+        "labelling_correction" => "the earlier version of this artifact labelled the unnormalised indicator-window φ_code sum as 'the code measure term'; it is a normalization-only surrogate. The actual released per-point measure multiplies by the erf window; its continuum value is M_actual_released_*.",
+        "psi_refinement_absdiff" => abs(Ψ32000.Ψ - Ψ4000.Ψ),
         "phi_equals_psi_times_L_relerr" => id_rel,
         "total_arclength_sn_window" => L_s,
+        "M_actual_sn" => M_actual_sn,
+        "M_actual_pf" => M_actual_pf,
         "P_gt_D" => Dict(
             "paper_term" => mt_paper_PgtD,
-            "paper_normalisation_code_phi_term" => mt_normfix_PgtD,
-            "code_term" => mt_code_PgtD,
-            "sign_flip_vs_paper" => sigflip_PgtD,
+            "paper_normalisation_code_phi_surrogate" => mt_normfix_PgtD,
+            "unnormalised_surrogate" => mt_surr_PgtD,
+            "actual_released_term" => mt_actual_PgtD,
+            "sign_flip_surrogate_vs_paper" => sigflip_surrogate_PgtD,
+            "sign_flip_actual_vs_paper" => sigflip_actual_PgtD,
         ),
         "P_lt_D" => Dict(
             "paper_term" => mt_paper_PltD,
-            "paper_normalisation_code_phi_term" => mt_normfix_PltD,
-            "code_term" => mt_code_PltD,
-            "sign_flip_vs_paper" => sigflip_PltD,
+            "paper_normalisation_code_phi_surrogate" => mt_normfix_PltD,
+            "unnormalised_surrogate" => mt_surr_PltD,
+            "actual_released_term" => mt_actual_PltD,
+            "sign_flip_surrogate_vs_paper" => sigflip_surrogate_PltD,
+            "sign_flip_actual_vs_paper" => sigflip_actual_PltD,
         ),
         "empty_targets" => Dict(
             "paper_loss" => L_paper_notargets,
-            "code_loss" => L_code_notargets,
-            "sign_flip_vs_paper" => (sign(L_paper_notargets) != sign(L_code_notargets)),
+            "unnormalised_surrogate_loss" => L_surr_notargets,
+            "actual_released_loss" => L_actual_notargets,
+            "sign_flip_surrogate_vs_paper" => (sign(L_paper_notargets) != sign(L_surr_notargets)),
+            "sign_flip_actual_vs_paper" => (sign(L_paper_notargets) != sign(L_actual_notargets)),
         ),
-        "ok" => (abs(Ψ8000.Ψ - Ψ1000.Ψ) < 1e-8 && id_rel < 1e-5 &&
-                 sigflip_PgtD && sigflip_PltD),
+        "ok" => (abs(Ψ32000.Ψ - Ψ4000.Ψ) < 1e-8 && id_rel < 1e-5 &&
+                 sigflip_surrogate_PgtD && sigflip_actual_PgtD &&
+                 sigflip_surrogate_PltD),
     ))
-    return (Ψ=Ψ1000.Ψ, L=L_s, id_rel=id_rel,
-            sigflip_PgtD=sigflip_PgtD, sigflip_PltD=sigflip_PltD,
-            ok=(abs(Ψ8000.Ψ - Ψ1000.Ψ) < 1e-8 && id_rel < 1e-5 &&
-                sigflip_PgtD && sigflip_PltD))
+    return (Ψ=Ψ4000.Ψ, L=L_s, id_rel=id_rel,
+            M_actual_sn=M_actual_sn,
+            sigflip_actual_PgtD=sigflip_actual_PgtD,
+            sigflip_actual_PltD=sigflip_actual_PltD,
+            ok=(abs(Ψ32000.Ψ - Ψ4000.Ψ) < 1e-8 && id_rel < 1e-5 &&
+                sigflip_surrogate_PgtD && sigflip_actual_PgtD &&
+                sigflip_surrogate_PltD))
 end
 
 # ============================================== p4: distance vs squared distance
@@ -249,7 +289,7 @@ function probe_p4()
         "paper_gradient_zero_in_flat_region" => (gp == 0.0),
         "scale_x10_E_paper" => E_paper(preds10, targets10),
         "scale_x10_E_code" => E_code(preds10, targets10),
-        "scale_note" => "rescaling p by 10 scales E_paper by 10 but E_code by 100, changing the relative weight of the error term against the scale-free log-measure term",
+        "scale_note" => "rescaling p by 10 scales E_paper by 10 but E_code by 100. The measure term is not p-scale-invariant either (the erf window width and the sinh argument carry p-units), so unit choices shift the error-vs-measure balance in both objectives; no scale-invariance claim is made for either term.",
         "ok" => ok,
     ))
     return (gp=gp, gc=gc, ok=ok)
@@ -348,6 +388,7 @@ function probe_p6()
     u, p = sn_fold(θ, +1)
     v = velocity(sn, [u, p], θ)          # nonzero fold velocity (Eq 10)
     out = Dict{String,Any}()
+    # --- empty-set semantics (released code reading) ---
     out["empty_predictions_E_paper_is_NaN"] = isnan(E_paper(Float64[], [1.0, 3.0]))
     out["empty_predictions_E_code_equals_1"] = E_code(Float64[], [1.0, 3.0])
     out["empty_predictions_E_code_blind_to_targets"] =
@@ -355,29 +396,59 @@ function probe_p6()
     out["empty_predictions_grad_E_code_zero"] =
         (∇E_code(Float64[], Vector{Vector{Float64}}(), [1.0, 3.0]) == [0.0, 0.0])
     out["empty_targets_E_code_zero"] = E_code([1.5], Float64[])
-    out["exact_match_E_code_zero"] = E_code([1.5], [1.5])
-    out["exact_match_E_paper_zero"] = E_paper([1.5], [1.5])
+    # --- C1: code objective, single prediction, exact match ---
+    # E_code = (p−t)² is SMOOTH at the match with true gradient 0. The
+    # released factored form gm2·2v/(p−t) returns NaN (0·Inf): a REMOVABLE
+    # IMPLEMENTATION DEFECT of the factored expression, not a mathematical
+    # singularity — the independent unfactored derivative 2(p−t)·v is 0.
+    out["C1_E_code_zero_at_match"] = E_code([1.5], [1.5]) == 0.0
     gcode = ∇E_code([1.5], [v], [1.5])
-    gpaper = ∇E_paper([1.5], [v], [1.5])
-    out["exact_match_grad_E_code_isNaN"] = any(isnan, gcode)
-    out["exact_match_grad_E_paper_isNaN"] = any(isnan, gpaper)
-    # near-exact approach behaviour (1 pred, 1 target; velocity v)
+    out["C1_released_factored_grad_NaN_removable_defect"] = any(isnan, gcode)
+    out["C1_true_unfactored_grad_zero"] = (2*(1.5 - 1.5)*v == [0.0, 0.0])
+    out["C1_factored_form_tracks_true_derivative_near_match"] =
+        norm(∇E_code([1.5 + 1e-6], [v], [1.5]) - 2e-6*v) < 1e-9
+    # --- C2: paper objective, single prediction, exact match ---
+    # E_paper = |p−t| has a GENUINE kink at the match: one-sided gradients
+    # ±v exist, the derivative does not (subgradient).
+    out["C2_E_paper_zero_at_match"] = E_paper([1.5], [1.5]) == 0.0
+    out["C2_one_sided_plus"] = ∇E_paper([1.5 + 1e-6], [v], [1.5])
+    out["C2_one_sided_minus"] = ∇E_paper([1.5 - 1e-6], [v], [1.5])
+    out["C2_kink_genuine_one_sided_flip"] =
+        (norm(∇E_paper([1.5 + 1e-6], [v], [1.5]) - v) < 1e-6 &&
+         norm(∇E_paper([1.5 - 1e-6], [v], [1.5]) + v) < 1e-6)
+    # --- C3: multiprediction, one matched, one at distance A ---
+    # paper E ~ (|d|·A)^{1/2}: UNBOUNDED gradient ∝ |d|^{-1/2} (genuine);
+    # code E = |d|·A: bounded kink, subgradient → ±A·v (genuine nonsmooth).
+    A = 2.0; t = 1.5
+    c3_rows = []
+    for d in (1e-1, 1e-2, 1e-3, 1e-6)
+        gp3 = norm(∇E_paper([t + d, t + A], [v, v], [t]))
+        gc3 = ∇E_code([t + d, t + A], [v, v], [t])
+        push!(c3_rows, [d, gp3, gp3*sqrt(d), norm(gc3), norm(gc3 - A*v)])
+    end
+    write_csv("p6_multiprediction.csv",
+        ["d", "abs_grad_E_paper", "grad_paper_times_sqrt_d",
+         "abs_grad_E_code", "abs_grad_E_code_minus_Av"], c3_rows)
+    out["C3_paper_gradient_unbounded_sqrt_tail"] =
+        (abs(c3_rows[1][3] - c3_rows[4][3]) < 0.05*maximum(r[3] for r in c3_rows))
+    # exact identity: ∇E_code = (A + d)·v at preds [t+d, t+A] (bounded kink,
+    # subgradient → ±A·v); assert it tightly at the smallest d
+    out["C3_code_gradient_bounded_kink"] =
+        (norm(∇E_code([t + 1e-6, t + A], [v, v], [t]) - (A + 1e-6)*v) < 1e-9)
+    # --- near-singleton approach table (contrast released vs unfactored) ---
     rows = []
     for d in (1e-1, 1e-2, 1e-3, 1e-6, 1e-9)
         gd = ∇E_code([1.5 + d], [v], [1.5])
         gp = ∇E_paper([1.5 + d], [v], [1.5])
-        push!(rows, [d, norm(gp), norm(gd), norm(gd)/d])
+        push!(rows, [d, norm(gp), norm(gd), norm(gd - 2*d*v), norm(gd)/d])
     end
     write_csv("p6_exact_approach.csv",
-        ["d", "abs_grad_E_paper", "abs_grad_E_code", "abs_grad_E_code_over_d"], rows)
-    # paper gradient is sign(d)*v for all d>0 (constant magnitude |v|,
-    # discontinuous at exact match); code gradient vanishes like 2|v|d
-    ok_approach = (all(abs(r[2] - norm(v)) < 1e-6 for r in rows) &&
-                   abs(rows[5][4] - 2*norm(v)) < 1e-4*norm(v) + 1e-15)
+        ["d", "abs_grad_E_paper", "abs_grad_E_code",
+         "abs_grad_E_code_minus_2dv", "abs_grad_E_code_over_d"], rows)
     out["paper_gradient_tends_to_abs_v"] =
         abs(rows[5][2] - norm(v)) < 1e-6
     out["code_gradient_vanishes_linearly_2vd"] =
-        abs(rows[5][4] - 2*norm(v)) < 1e-4*norm(v) + 1e-15
+        abs(rows[5][5] - 2*norm(v)) < 1e-4*norm(v) + 1e-15
     write_toml("p6_edgecases.toml", Dict(
         "empty_predictions_note" => "released code errors() with empty predictions returns 1 (empty-product init) for ANY targets — the error term is blind to target location when no prediction exists; the paper Eq (4) is undefined there (NaN recorded). The code gradient of the error term is exactly zero: only the measure term can move theta until a first bifurcation appears.",
         "empty_predictions_E_paper_is_NaN" => out["empty_predictions_E_paper_is_NaN"],
@@ -385,12 +456,18 @@ function probe_p6()
         "empty_predictions_E_code_blind_to_targets" => out["empty_predictions_E_code_blind_to_targets"],
         "empty_predictions_grad_E_code_zero" => out["empty_predictions_grad_E_code_zero"],
         "empty_targets_E_code_zero" => out["empty_targets_E_code_zero"],
-        "exact_match_note" => "at an exact match both objectives have value 0 and both gradient formulas produce NaN (0*Inf structure: gm=0 times velocity/(p-t)=Inf), the documented expected singularity",
-        "exact_match_E_code_zero" => out["exact_match_E_code_zero"],
-        "exact_match_E_paper_zero" => out["exact_match_E_paper_zero"],
-        "exact_match_grad_E_code_isNaN" => out["exact_match_grad_E_code_isNaN"],
-        "exact_match_grad_E_paper_isNaN" => out["exact_match_grad_E_paper_isNaN"],
-        "near_match_note" => "approaching an exact match the paper |d| gradient tends to |v| (persistent crossing force), the code d^2 gradient vanishes like 2|v|d",
+        "C1_note" => "code objective, single prediction, exact match: E=(p−t)² is smooth with true gradient 0 (independent unfactored derivative 2(p−t)·v = 0). The released factored gradient form gm2·2v/(p−t) returns NaN (0·Inf) — a REMOVABLE IMPLEMENTATION DEFECT of the factored expression, not a mathematical singularity; near the match the same factored form tracks the true derivative 2dv.",
+        "C1_released_factored_grad_NaN_removable_defect" => out["C1_released_factored_grad_NaN_removable_defect"],
+        "C1_true_unfactored_grad_zero" => out["C1_true_unfactored_grad_zero"],
+        "C1_factored_form_tracks_true_derivative_near_match" => out["C1_factored_form_tracks_true_derivative_near_match"],
+        "C2_note" => "paper objective, single prediction, exact match: |p−t| has a genuine kink — one-sided gradients +v/−v; genuinely nondifferentiable (unlike C1)",
+        "C2_kink_genuine_one_sided_flip" => out["C2_kink_genuine_one_sided_flip"],
+        "C2_one_sided_plus" => out["C2_one_sided_plus"],
+        "C2_one_sided_minus" => out["C2_one_sided_minus"],
+        "C3_note" => "multiprediction (one matched, one at distance A): paper E ~ (|d|A)^(1/2) — genuinely UNBOUNDED gradient ∝ |d|^{-1/2} (the sqrt(δ) tail that destabilises fixed-step descent in p8); code E = |d|·A — genuinely nonsmooth but BOUNDED (subgradient → ±A·v), the structure behind the p8 fixed-step stall of the squared objective at |P|=|D|=2",
+        "C3_paper_gradient_unbounded_sqrt_tail" => out["C3_paper_gradient_unbounded_sqrt_tail"],
+        "C3_code_gradient_bounded_kink" => out["C3_code_gradient_bounded_kink"],
+        "near_match_note" => "approaching an exact singleton match the paper |d| gradient tends to |v| (persistent crossing force), the code d² gradient vanishes like 2|v|d",
         "paper_gradient_tends_to_abs_v" => out["paper_gradient_tends_to_abs_v"],
         "code_gradient_vanishes_linearly_2vd" => out["code_gradient_vanishes_linearly_2vd"],
         "fold_velocity_norm" => norm(v),
@@ -398,9 +475,12 @@ function probe_p6()
                  out["empty_predictions_E_code_blind_to_targets"] === true &&
                  out["empty_predictions_grad_E_code_zero"] === true &&
                  out["empty_targets_E_code_zero"] == 0.0 &&
-                 out["exact_match_E_code_zero"] == 0.0 &&
-                 out["exact_match_grad_E_code_isNaN"] === true &&
-                 out["exact_match_grad_E_paper_isNaN"] === true &&
+                 out["C1_released_factored_grad_NaN_removable_defect"] === true &&
+                 out["C1_true_unfactored_grad_zero"] === true &&
+                 out["C1_factored_form_tracks_true_derivative_near_match"] === true &&
+                 out["C2_kink_genuine_one_sided_flip"] === true &&
+                 out["C3_paper_gradient_unbounded_sqrt_tail"] === true &&
+                 out["C3_code_gradient_bounded_kink"] === true &&
                  out["paper_gradient_tends_to_abs_v"] === true &&
                  out["code_gradient_vanishes_linearly_2vd"] === true),
     ))
@@ -408,10 +488,14 @@ function probe_p6()
           out["empty_predictions_E_code_blind_to_targets"] === true &&
           out["empty_predictions_grad_E_code_zero"] === true &&
           out["empty_targets_E_code_zero"] == 0.0 &&
-          out["exact_match_E_code_zero"] == 0.0 &&
-          out["exact_match_grad_E_code_isNaN"] === true &&
-          out["exact_match_grad_E_paper_isNaN"] === true &&
-          ok_approach)
+          out["C1_released_factored_grad_NaN_removable_defect"] === true &&
+          out["C1_true_unfactored_grad_zero"] === true &&
+          out["C1_factored_form_tracks_true_derivative_near_match"] === true &&
+          out["C2_kink_genuine_one_sided_flip"] === true &&
+          out["C3_paper_gradient_unbounded_sqrt_tail"] === true &&
+          out["C3_code_gradient_bounded_kink"] === true &&
+          out["paper_gradient_tends_to_abs_v"] === true &&
+          out["code_gradient_vanishes_linearly_2vd"] === true)
     return (out=out, ok=ok)
 end
 
@@ -664,7 +748,7 @@ function probe_p8()
           nconv == 8)
     write_toml("p8_inference.toml", Dict(
         "seed" => SEED,
-        "note" => "Eq (4)'s geometric mean over predictions gives a sqrt(delta) tail near exact match when a target is matched but other predictions remain at nonzero distance: E ~ sqrt(delta*far_distance) with UNBOUNDED gradient. Measured consequence for the SN 2-fold/2-target case with the paper's own fixed-step descent (Flux Descent(0.01)): E decreased 1.47 to a transient minimum below the paper's 0.02 convergence threshold (~0.009), but the descent does not stop there (the released train! stopping rule Loss<0.02 with |P|=|D| would have halted at that dip); continuing, the growing near-match gradients produced oscillations of increasing amplitude that flipped the sign of theta2 and ejected the iterate from the 2-fold regime entirely (|P| changed 2->0, the paper's piecewise-smoothness boundary). The code's squared objective (linearly vanishing gradient) merely stalls at E_code ~ 0.16 under the same fixed step, with transient sub-0.02 dips from iteration ~103. For |P|=|D|=1 (PF) the code objective converges to machine precision under fixed step while the paper objective stalls at |delta| ~ 0.018. Backtracking line search converges in all cases.",
+        "note" => "Eq (4)'s geometric mean over predictions gives a sqrt(delta) tail near exact match when a target is matched but other predictions remain at nonzero distance: E ~ sqrt(delta*far_distance) with UNBOUNDED gradient. Measured consequence for the SN 2-fold/2-target case with the paper's own fixed-step descent (Flux Descent(0.01)): E decreased 1.47 to a transient minimum below the paper's 0.02 convergence threshold (~0.009), but the descent does not stop there (the released train! stopping rule Loss<0.02 with |P|=|D| would have halted at that dip); continuing, the growing near-match gradients produced oscillations of increasing amplitude that flipped the sign of theta2 and ejected the iterate from the 2-fold regime entirely (|P| changed 2->0, the paper's piecewise-smoothness boundary). The code's squared objective for |P|=|D|=2 is |delta|*far-distance — a bounded but NON-vanishing kinked gradient — so fixed-step descent stalls at E_code ~ 0.16 with transient sub-0.02 dips from iteration ~103; for |P|=|D|=1 it is delta^2 (smooth, vanishing gradient) and fixed-step descent converges to machine precision (PF) while the paper objective |delta| stalls at |delta| ~ 0.018. Backtracking line search converges in all cases.",
         "sn_targets" => sn_targets, "sn_start" => θ₀,
         "sn_paper_fixed_eta" => Dict(
             "E_final" => rA.E, "min_E" => rA.minE,
@@ -688,6 +772,61 @@ function probe_p8()
             manifold=manifold_rows, restarts=restarts, nconv=nconv, ok=ok)
 end
 
+# ============================================ p10: probe adjoint (∇Ψ) vs FD
+function probe_p10()
+    # Analytic Leibniz adjoint of the paper's normalised main-text measure
+    # (Eq 5 + Eq 7, indicator window) vs central FD of Ψ itself, with moving
+    # window-intersection boundaries recomputed per perturbed θ; FD-step and
+    # quadrature sweeps separate FD error from quadrature error (a
+    # discretisation-derivative vs continuum-derivative distinction at
+    # probe level), and the boundaries=false variant demonstrates that the
+    # endpoint terms are required.
+    θ = [1.0, -1.0]
+    rows = []
+    adj_all = Dict{String,Any}()
+    for (pmin, pmax) in ((-2.0, 2.0), (-0.6, 1.6))
+        adj = ∇Ψ_sn(θ, pmin, pmax; n=4000)
+        noB = ∇Ψ_sn(θ, pmin, pmax; n=4000, boundaries=false)
+        for k in 1:2
+            for h in (1e-2, 1e-3, 1e-4, 1e-5)
+                for n in (1000, 4000, 16000)
+                    θp = copy(θ); θp[k] += h
+                    θm = copy(θ); θm[k] -= h
+                    fd = (simpson_Ψ(SNModel(), θp, φ_eq5, pmin, pmax; n=n).Ψ -
+                          simpson_Ψ(SNModel(), θm, φ_eq5, pmin, pmax; n=n).Ψ)/(2h)
+                    push!(rows, [pmin, pmax, k, h, n, fd, adj.∇[k],
+                                 abs(fd - adj.∇[k]), abs(fd - noB.∇[k])])
+                end
+            end
+        end
+        adj_all["win_$(pmin)_$(pmax)"] = Dict(
+            "Psi" => adj.Ψ, "grad_adjoint" => adj.∇,
+            "grad_no_boundaries" => noB.∇,
+            "boundary_N" => adj.boundary[1], "boundary_L" => adj.boundary[2],
+            "interior_N" => adj.interior[1], "interior_L" => adj.interior[2],
+            "max_absdiff_vs_fd" => maximum(r[8] for r in rows if
+                r[1] == pmin && r[2] == pmax && r[5] == 4000 && r[4] == 1e-4),
+            "min_absdiff_vs_fd_no_boundaries" => minimum(r[9] for r in rows if
+                r[1] == pmin && r[2] == pmax && r[5] == 4000 && r[4] == 1e-4),
+        )
+    end
+    write_csv("p10_probe_adjoint.csv",
+        ["pmin", "pmax", "theta_k", "fd_h", "quadrature_n", "fd_grad",
+         "adjoint_grad", "absdiff", "absdiff_no_boundaries"], rows)
+    worst = maximum(r[8] for r in rows if r[4] == 1e-4 && r[5] == 4000)
+    worst_nob = minimum(r[9] for r in rows if r[4] == 1e-4 && r[5] == 4000)
+    ok = worst < 1e-6 && worst_nob > 0.05
+    write_toml("p10_probe_adjoint.toml", Dict(
+        "theta" => θ,
+        "note" => "analytic Leibniz adjoint (differentiation under the integral at fixed curve parameter u + explicit moving-window-endpoint terms u_edge'(θ) = -(∂p/∂θ)/(∂p/∂u)) vs central FD of Ψ with window intersections recomputed per perturbed θ. The no-boundaries variant differs from FD by 0.1-0.3 (and flips gradient signs in the measured cases): window-endpoint motion is not a small correction. FD-step and quadrature sweeps separate FD truncation (shrinks with h) from quadrature error (shrinks with n).",
+        "windows" => adj_all,
+        "worst_absdiff_adjoint_vs_fd_h1e-4_n4000" => worst,
+        "min_absdiff_no_boundaries_vs_fd_h1e-4_n4000" => worst_nob,
+        "ok" => ok,
+    ))
+    return (rows=rows, worst=worst, worst_nob=worst_nob, ok=ok)
+end
+
 # ==================================================================== driver
 function main()
     println("== experiment 01 equilibria probes (stdlib only) ==")
@@ -701,6 +840,7 @@ function main()
     results["p6"] = timed("p6_edgecases", probe_p6)
     results["p7"] = timed("p7_degenerate", probe_p7)
     results["p8"] = timed("p8_inference", probe_p8)
+    results["p10"] = timed("p10_probe_adjoint", probe_p10)
     total = time() - T0
     cpu = Sys.cpu_info()
     write_toml("runtime.toml", Dict(

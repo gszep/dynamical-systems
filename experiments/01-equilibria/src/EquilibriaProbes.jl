@@ -12,15 +12,20 @@ Conventions
 * A point `z` is `Vector{Float64}` of length N+1: `[u...; p]`.
 * `θ` is `Vector{Float64}` of length M.
 * Paper equations implemented (arXiv v3 LaTeX source, read 2026-10-19):
-  - Eq (2)  prediction set P(θ): F=0, |det(∂F/∂u)|=0, d/ds|det| ≠ 0
+  - Eq (2)  prediction set P(θ): F=0, det(∂F/∂u)=0, d/ds det ≠ 0.
+    The paper's Det notation (bars around ∂F_θ/∂u) is the DETERMINANT
+    (bars as determinant notation, not absolute value); Supp B writes
+    Det = Πₙ λₙ (product of eigenvalues = signed determinant).
   - Eq (4)  error E = (1/|D|) Σ_{p'∈D} Π_{p∈P} |p-p'|^{1/|P|}   (unsquared)
-  - Eq (5)  measure φ = (1 + |Det|/|d Det/ds|)^{-1}, Det = |det(∂F/∂u)|
+  - Eq (5)  measure φ = (1 + |Det/(d Det/ds)|)^{-1}; Det = det(∂F/∂u)
+    (signed); the outer bars are the absolute value of the ratio
   - Eq (7)  Ψ = (∫_{F=0} φ ds) / (∫_{F=0} ds)  (arclength-normalised)
   - Eq (8)  L = (|P|-|D|) log Ψ + E
   - Eq (9)  ∇L (note: the published Eq (9) contains a stray, undefined `λ`
              factor in the measure-gradient term; not implemented, matching
              the released code which has no such multiplier)
-  - Eq (10) ∂p/∂θ = -p̂ (∂G/∂(u,p))^{-1} ∂G/∂θ, G = [F; Det]
+  - Eq (10) ∂p/∂θ = -p̂ (∂G/∂(u,p))^{-1} ∂G/∂θ, G = [F; Det]  (signed det,
+    consistent with the released code's det(∂Fu))
   - Supp B (B.1) eigenvalue conditions; (B.6) φ→1 when dλ/ds→±∞ w/o crossing
   - Supp C (C.8) normal deformation dz/dθ = -∂F/∂z' (∂F/∂z ∂F/∂z')^{-1} ∂F/∂θ
   - Supp D (D.1) tanh-flattened measure
@@ -43,11 +48,13 @@ using Random
 export SNModel, PFModel, FHNModel,
     F, Fz, Fθ, det_state, det_z, det_θ, statejac, curve_points, curve_speed,
     tangent_unit, eigen_ds, φ_eq5, φ_tanh, φ_e1, φ_code, erf_approx,
-    solve_augmented, find_all_solutions, velocity, velocity_fd,
+    window_erf, solve_augmented, find_all_solutions, velocity, velocity_fd,
     sn_fold, sn_velocity_analytic, pf_fold, pf_velocity_analytic,
     branch_domain, simpson_Ψ, trapz_Φ, arclength,
     E_paper, E_code, ∇E_paper, ∇E_code, code_mean,
-    deformation_c8, cusp_diagnostics, hopf_location
+    deformation_c8, cusp_diagnostics, hopf_location,
+    sn_det_curve, sn_ν, sn_edge_roots, sn_edge_du_dθ, sn_φ_eq5_u, sn_dΦint,
+    sn_dν_k, ∇Ψ_sn, M_windowed_code
 
 # ---------------------------------------------------------------- models ----
 
@@ -92,8 +99,11 @@ function Fz(::FHNModel, z, θ)
 end
 function Fθ(::FHNModel, z, θ)
     a, b, τ = θ
-    return reshape([0.0, 0.0, 0.0,
-                    1/τ, -z[2]/τ, -(z[1] + a - b*z[2])/τ^2], 2, 3)
+    # column-major layout: column k is ∂F/∂θ_k
+    # ∂F/∂a = [0, 1/τ], ∂F/∂b = [0, -u₂/τ], ∂F/∂τ = [0, -(u₁+a-b u₂)/τ²]
+    return reshape([0.0, 1/τ,
+                    0.0, -z[2]/τ,
+                    0.0, -(z[1] + a - b*z[2])/τ^2], 2, 3)
 end
 det_state(m::FHNModel, z, θ) = (1 - θ[2]*(1 - z[1]^2))/θ[3]
 det_z(m::FHNModel, z, θ) = reshape([2θ[2]*z[1]/θ[3], 0.0, 0.0], 1, 3)
@@ -510,7 +520,7 @@ function deformation_c8(m, z, θ)
     return .-(J' * ((J*J') \ Jθ))      # (N+1) × M
 end
 
-# --------------------------------------------------------------- erf approx --
+# --------------------------------------------------- erf approx --
 "Abramowitz–Stegun 7.1.26 rational erf approximation, |err| ≤ 1.5e-7.
 Used only for stdlib-only probes; package cross-checks use SpecialFunctions."
 function erf_approx(x::Real)
@@ -528,6 +538,143 @@ end
 function window_erf(p, pmin, pmax; β=10.0, erf=erf_approx)
     return (1 + erf((β*(p - pmin) - 3)/sqrt(2)))/2 *
            (1 - (1 + erf((β*(p - pmax) + 3)/sqrt(2)))/2)
+end
+
+# ================= analytic adjoint machinery for the SN model ================
+# The SN equilibrium curve admits an explicit parametrisation
+# z(u;θ) = (u, p(u;θ)), p(u;θ) = -θ₁u - θ₂u³, so the continuum θ-derivative of
+# any line integral over it can be written exactly by differentiating under the
+# integral sign at FIXED u (Leibniz) plus explicit moving-endpoint terms
+# u_edge'(θ_k) = -(∂p/∂θ_k)/(∂p/∂u). This is the continuum derivative of the
+# geometric integral; the paper's C.8 normal-deformation adjoint computes the
+# same quantity without an explicit parametrisation (tangential freedom, C.9).
+
+"det(∂F/∂u) along the SN curve at curve parameter u."
+sn_det_curve(u, θ) = θ[1] + 3θ[2]*u^2
+"Analytic speed ds/du = √(1 + (dp/du)²), dp/du = -det."
+sn_ν(u, θ) = sqrt(1 + sn_det_curve(u, θ)^2)
+"Window-intersection u roots: p(u;θ) = edge ⇔ θ₂u³ + θ₁u + edge = 0."
+sn_edge_roots(θ, edge) = cubic_real_roots([edge, θ[1], 0.0, θ[2]])
+"Moving endpoint derivative: u_edge'(θ_k) = -(∂p/∂θ_k)/(∂p/∂u) = -u^{2k-1}/det."
+sn_edge_du_dθ(u, θ, k) = k == 1 ? -u/sn_det_curve(u, θ) : -u^3/sn_det_curve(u, θ)
+
+"Eq (5) measure at fixed curve parameter u: φ = |B|/(|B|+|A|), identical to
+(1+|A/B|)^{-1} wherever B ≠ 0 (and by continuity at A=0)."
+function sn_φ_eq5_u(u, θ)
+    A = sn_det_curve(u, θ)
+    B = 6θ[2]*u/sn_ν(u, θ)
+    return abs(B)/(abs(B) + abs(A))
+end
+
+"∂(φ·ν)/∂θ_k at fixed u (a.e. derivative; piecewise signs of A and B are
+constant within kink-split quadrature pieces)."
+function sn_dΦint(u, θ, k)
+    A = sn_det_curve(u, θ)
+    ν = sn_ν(u, θ)
+    B = 6θ[2]*u/ν
+    dA = k == 1 ? 1.0 : 3u^2
+    dν = A*dA/ν
+    dB = k == 1 ? -6θ[2]*u*dν/ν^2 : 6u/ν - 6θ[2]*u*dν/ν^2
+    sA = A ≥ 0 ? 1.0 : -1.0
+    sB = B ≥ 0 ? 1.0 : -1.0
+    P, Q = sB*B, sA*A
+    dP, dQ = sB*dB, sA*dA
+    # quotient rule for φ = P/(P+Q): dφ = (Q·dP − P·dQ)/(P+Q)²
+    dφ = (Q*dP - P*dQ)/(P + Q)^2
+    φ = P/(P + Q)
+    return dφ*ν + φ*dν
+end
+
+"∂ν/∂θ_k at fixed u."
+sn_dν_k(u, θ, k) = sn_det_curve(u, θ)*(k == 1 ? 1.0 : 3u^2)/sn_ν(u, θ)
+
+"""
+    ∇Ψ_sn(θ, pmin, pmax; n=2000, boundaries=true)
+
+Analytic Leibniz adjoint of the paper's normalised main-text measure
+Ψ = (∫φ ds)/(∫ds) (Eq 5 + Eq 7) over the SN curve restricted to
+p ∈ [pmin,pmax] (indicator window), with moving window-intersection
+endpoints accounted for: ∇Ψ = (∇N - Ψ∇L)/L with
+∇N_k = Σ[Φ·u_edge']_boundaries + ∫ ∂(φν)/∂θ_k du (fixed u),
+∇L_k = Σ[ν·u_edge']_boundaries + ∫ ∂ν/∂θ_k du.
+`boundaries=false` drops the endpoint terms (used to demonstrate that they
+are required). Returns (∇, Ψ, L, boundary, interior, dN, dL).
+"""
+function ∇Ψ_sn(θ, pmin, pmax; n=2000, boundaries=true)
+    dom = branch_domain(SNModel(), θ, pmin, pmax)
+    isempty(dom) && error("empty window domain")
+    for (a, b) in dom
+        (abs(sn_det_curve(a, θ)) < 1e-8 || abs(sn_det_curve(b, θ)) < 1e-8) &&
+            error("window edge coincides with a fold (det=0): non-generic setting")
+    end
+    dN = zeros(2); dL = zeros(2); bN = zeros(2); bL = zeros(2)
+    for (a, b) in dom
+        Φa = sn_φ_eq5_u(a, θ)*sn_ν(a, θ)
+        Φb = sn_φ_eq5_u(b, θ)*sn_ν(b, θ)
+        for k in 1:2
+            bN[k] += Φb*sn_edge_du_dθ(b, θ, k) - Φa*sn_edge_du_dθ(a, θ, k)
+            bL[k] += sn_ν(b, θ)*sn_edge_du_dθ(b, θ, k) -
+                     sn_ν(a, θ)*sn_edge_du_dθ(a, θ, k)
+        end
+        for (x, y) in kink_split(SNModel(), θ, a, b)
+            # the a.e. θ-derivative integrand is kinked exactly at the split
+            # points (sign flips of A and B); shift pieces inward by ε so
+            # Simpson nodes never evaluate the ambiguous one-sided value
+            x₊, y₋ = x + 1e-9, y - 1e-9
+            y₋ > x₊ || continue
+            for k in 1:2
+                dN[k] += simpson(u -> sn_dΦint(u, θ, k), x₊, y₋, n)
+                dL[k] += simpson(u -> sn_dν_k(u, θ, k), x₊, y₋, n)
+            end
+        end
+    end
+    ΨL = simpson_Ψ(SNModel(), θ, φ_eq5, pmin, pmax; n=n)
+    Ψ, L = ΨL.Ψ, ΨL.L
+    totN = boundaries ? dN .+ bN : dN
+    totL = boundaries ? dL .+ bL : dL
+    ∇ = (totN .- Ψ.*totL)./L
+    return (∇=∇, Ψ=Ψ, L=L, boundary=(bN, bL), interior=(dN, dL),
+            dN=totN, dL=totL)
+end
+
+"""
+    M_windowed_code(θ, pmin, pmax; n=2000, trunc=false, erf=erf_approx, urange=4.0)
+
+Continuum counterpart of the released branch measure
+(Objectives.jl `measure(F, branches, θ, targets)`): M = ∫ w_erf(p)·φ_code·ds
+over the SN curve, kink-split Simpson. The released code's per-point measure
+multiplies the sinh eigen-measure by the erf window; in the continuum the
+window is part of the integrand (no hard domain cut).
+`trunc=true` restricts the domain to the physical window intersections
+u ∈ [u_left(θ), u_right(θ)] recomputed per θ (single spanning interval;
+errors for non-generic windows whose edge lies inside the multivalued
+region) — the honest continuum counterpart of the branch-truncated discrete
+sum, whose FD derivative then includes endpoint motion that the released
+adjoint (which relies on the erf decay) does not carry.
+"""
+function M_windowed_code(θ, pmin, pmax; n=2000, trunc=false, erf=erf_approx,
+                         urange=4.0)
+    if trunc
+        rs = sort(vcat(sn_edge_roots(θ, pmin), sn_edge_roots(θ, pmax)))
+        rs = filter(u -> abs(u) ≤ urange, rs)
+        length(rs) != 2 &&
+            error("non-generic window: expected exactly two intersection roots, got $(length(rs))")
+        dom = [(rs[1], rs[2])]
+    else
+        dom = [(-urange, urange)]
+    end
+    fint = u -> begin
+        z = curve_points(SNModel(), u, θ)
+        return window_erf(z[2], pmin, pmax; erf=erf)*φ_code(SNModel(), z, θ)*
+               sn_ν(u, θ)
+    end
+    M = 0.0
+    for (a, b) in dom
+        for (x, y) in kink_split(SNModel(), θ, a, b)
+            M += simpson(fint, x, y, n)
+        end
+    end
+    return M
 end
 
 # ------------------------------------------------------------ misc references --
