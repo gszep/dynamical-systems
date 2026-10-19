@@ -26,7 +26,7 @@ Lean theorem or exhaustive landscape coverage is claimed by these experiments.
    compare spatial resolutions and symmetry-aware morphology descriptors. A small
    1D atlas is a baseline, not completion of 2D spots/stripes or PDE inference.
 
-## Current state
+## Initial launch state (superseded by checkpoints below)
 
 - Research notes and report were committed and pushed; source-reading limitations
   are disclosed in the report.
@@ -138,10 +138,23 @@ physical-window endpoints, refine quadrature and FD steps, and separately test
 the quotient derivative for normalization. A count-matched loss disables the
 measure term and cannot establish its derivative correctness.
 
+## Latest reconciliation: first overnight wake-up
+
+Heartbeat `17a3bc89` successfully delivered into the canonical conversation.
+Existing children own the three correction/gradient tasks; no duplicate builders
+or repeated setup were launched. No additional completion notification or corrected
+commit has arrived yet. The next action remains integration and execution of the
+returned fixes, not running known-defective earlier implementations.
+
+The setup hold is released, and the only remaining waits are for the existing
+workers' focused corrections. No user-only approval blocker exists. Keep the
+bounded overnight heartbeat active.
+
 ## Known uncertainties / do not repeat as established facts
 
-- Paper and released code appear to use different measure normalizations and
-  target-distance powers; their behavioral consequences have not been tested.
+- Paper and released code use different measure normalizations and target-distance
+  powers. Controlled surrogate effects have been measured, but actual windowed
+  measure-gradient consistency and reviewed interpretation are still pending.
 - Language performance and agent productivity rankings are unmeasured.
 - Finding no integrated successor in the research pass is not evidence of novelty.
 - Persistent homology alone neither identifies a unique branch nor guarantees
