@@ -112,6 +112,32 @@ The three-process/one-thread-per-process budget now applies to numerical runs.
 - Cycle and PDE builders are still correcting the static findings. Their suites
   may run as soon as those commits return; no additional user approval is needed.
 
+## Equilibrium review qualifications (pending corrections)
+
+The 101 passing tests are real but insufficient to establish all written claims.
+The independent review identified the following; the existing equilibrium builder
+has been given these findings without restarting setup:
+
+- FHN parameter-Jacobian entries were reshaped in the wrong order; current
+  value-only Hopf probes do not cover this derivative. Add all-column FD checks.
+- Initial normalization artifacts compare an **unwindowed surrogate**, not the
+  exact released erf-windowed objective. Their normalization-only comparison is
+  retained, but actual-package count-term sign claims must be qualified/retested.
+- The singleton squared-distance objective has derivative zero at exact match;
+  its NaN factored gradient is a removable implementation defect, not an objective
+  singularity. The unsquared cusp and multi-prediction cases are distinct.
+- Paper determinant notation is signed (product of eigenvalues); the proposed
+  signed-versus-absolute paper/code discrepancy was false and must be removed.
+- Package checks must propagate training/final-loss/dimension failures, not print
+  `ALL OK` after catching them. The recorded successful tiny run is still evidence,
+  but the command's previous exit status alone is not a reliable regression gate.
+- The vendored snapshot must retain its upstream MIT license notice.
+
+Next gradient comparison must include the same windowed integrand and moving
+physical-window endpoints, refine quadrature and FD steps, and separately test
+the quotient derivative for normalization. A count-matched loss disables the
+measure term and cannot establish its derivative correctness.
+
 ## Known uncertainties / do not repeat as established facts
 
 - Paper and released code appear to use different measure normalizations and
