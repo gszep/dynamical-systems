@@ -87,13 +87,28 @@ successive maxima of `x1`), and in robustness tests the guess is deliberately
 30% wrong. The Jacobian used by Newton is
 
 ```
-dG = [ Psi*dhat - dhat  |  f(x(T)) ]
+dG = [ Psi*dhat - dhat  |  P(T) ]
 ```
 
-with `Psi` the monodromy of the *same* discretization, so the Newton matrix is
-the exact derivative of the discrete residual. Damped Newton with backtracking
-(Armijo decrease of the residual norm) solves the system; the discrete residual
-is driven to ~1e-12 relative to the state scale.
+with `Psi = d x(T)/d x0` the monodromy and `P = d x(T)/d T` the period
+sensitivity of the *same fixed-N discretization* — both are exact derivatives
+of the discrete residual. `P` needs care: with `N` fixed the step size
+`h = T/N` changes with `T`, so the continuous-flow identity
+`d x(T)/d T = f(x(T))` is wrong by `O(h^4)` for the discrete map and is never
+used in a Jacobian. `P` is computed by writing the `N`-step map as RK4 on the
+time-rescaled system `dx/dtau = T*f(x)`, `tau in [0,1]`, with `N` steps of
+`1/N`: the iterates are identical (RK4 stages are homogeneous in the step
+size), and `T` becomes an ordinary parameter of the rescaled rhs, whose
+sensitivity equation translated back to physical time is
+
+```
+P' = J(x) P + f(x)/T,   P(0) = 0.
+```
+
+A coarse-mesh test verifies `P` against a fixed-N finite difference in `T`
+(and confirms the naive `f(x(T))` column is visibly `O(h^4)` off there). Damped
+Newton with backtracking (Armijo decrease of the residual norm) solves the
+system; the discrete residual is driven to ~1e-12 relative to the state scale.
 
 ### Spurious equilibrium roots: exclusion, guards, deflation
 
@@ -116,7 +131,8 @@ deliberately with hand-built fixtures:
    equilibria (near them the deflated merit diverges). It is singular exactly
    at the deflated points, which is reported as `DeflationSingular`.
 3. **Period bounds** `T in (T_min, T_max)`: the T-direction is degenerate at an
-   equilibrium root (`dG/dT = f(x(T)) = 0`) and `T -> 0` collapses onto it;
+   equilibrium root (`dG/dT = P = 0` there, since the trajectory, `f` and hence
+   the period sensitivity all vanish along it) and `T -> 0` collapses onto it;
    bounds plus out-of-bounds reporting keep the solve honest.
 
 The test pair is deterministic: started deep in the linear regime near the
@@ -130,13 +146,17 @@ genuine cycle.
 ### Floquet multipliers from the discrete variational equations
 
 The state is integrated with classical RK4 jointly with the variational
-equations `Psi' = J(x(t)) Psi` and, for gradients, the parameter sensitivities
+equations `Psi' = J(x(t)) Psi`, the period sensitivity
+`P' = J(x(t)) P + f(x(t))/T` (see the shooting section for why `P` is needed)
+and, for gradients, the parameter sensitivities
 `S' = J(x(t)) S + df/dtheta(x(t))`. Because RK4 stages are smooth in the initial
-data and parameters, differentiation commutes with the method: `Psi` is
-*exactly* the Jacobian of the discrete flow map and `S` exactly
-`d x(T)/d theta`. This is verified against central finite differences of the
-discrete map (agreement to FD truncation error only, and central FD beats
-forward FD by >10x).
+data, the period and the parameters, differentiation commutes with the method:
+`Psi` is *exactly* `d x(T)/d x0`, `P` exactly `d x(T)/d T` (with `N` fixed) and
+`S` exactly `d x(T)/d theta` of the discrete map. This is verified against
+central finite differences of the discrete map in `x0` and in `T` at `N` fixed
+(agreement to FD truncation error only, and central FD beats forward FD by
+>10x; on a coarse stable mesh the naive continuous column `f(x(T))` is visibly
+`O(h^4)` away from the true fixed-N `T`-derivative).
 
 Multiplier semantics, checked explicitly:
 
@@ -173,11 +193,16 @@ Inverse step: Gauss-Newton / least squares (`dtheta = -(J_scaled \ r_scaled)`,
 so a square system is Newton and a tall one is QR least squares). Gradients:
 
 - **implicit**: at the converged shooting solution,
-  `J_red * d(s,T)/d theta_k = -S(T)[:,k]`, then chain to observables. This is
-  the cycle analogue of the implicit layer used for equilibrium bifurcations in
-  the NeurIPS 2021 work — the phase-fixed system is exactly what makes
-  `J_red` invertible (the neutral direction is removed by the section).
-  Requires observables `(:radius, :period)` and an analytic `param_rhs`.
+  `J_red * d(s,T)/d theta_k = -S(T)[:,k]`, then chain to observables, with
+  `J_red = [Psi*dhat - dhat, P]` the *exact* Jacobian of the fixed-N discrete
+  residual (both columns are exact discrete derivatives, including the period
+  column `P`). This is the cycle analogue of the implicit layer used for
+  equilibrium bifurcations in the NeurIPS 2021 work — the phase-fixed system
+  is exactly what makes `J_red` invertible (the neutral direction is removed
+  by the section) — and it is the exact derivative of the converged discrete
+  solve, which is verified against central finite differences of the
+  re-solved pipeline. Requires observables `(:radius, :period)` and an
+  analytic `param_rhs`.
 - **finite differences** through the full re-solve (used automatically when
   `:logmult` is among the observables; second-order sensitivity machinery for
   an implicit multiplier gradient is future work).
@@ -185,6 +210,11 @@ so a square system is Newton and a tall one is QR least squares). Gradients:
 The two paths are cross-checked against each other and, for Stuart–Landau,
 against the independent closed-form gradient
 `d radius/d mu = 1/(2 sqrt(mu))`, `d period/d omega = -2*pi/omega^2`.
+Returned fields are self-consistent: if the Gauss-Newton loop exits without
+recovering (max iterations, stall, gradient failure), the forward map is
+re-evaluated at the returned `theta_hat`, so `residual_scaled`, `final_obs`
+and the mismatch flag always describe `theta_hat` (a `max_iter=1` test
+enforces this, including the mismatch flag).
 
 Negative/honesty cases: invalid targets (radius/period must be positive)
 throw; an *inconsistent* observable triple (multiplier squared — off the

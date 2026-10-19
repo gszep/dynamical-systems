@@ -11,7 +11,14 @@
 #     is used ONLY here as ground truth, never inside the solvers;
 #   * negative cases: mu <= 0, inconsistent observables, cross-model
 #     mismatch, spurious equilibrium roots, invalid inputs;
-#   * convergence: RK4 time-step order checks and cross-grid consistency.
+#   * convergence: RK4 time-step order checks and cross-grid consistency;
+#   * discrete-derivative exactness: the fixed-N period sensitivity and the
+#     implicit gradient are checked against finite differences of the
+#     discrete map / of the converged discrete solve (the continuous-flow
+#     identity f(x(T)) is O(h^4) off for the fixed-N map and is never used
+#     in a Jacobian);
+#   * result self-consistency: inference return fields always describe
+#     theta_hat (max_iter=1 regression test, including the mismatch flag).
 #
 # Validation status at authoring time: NOT executed (package setup was
 # running concurrently). See experiments/02-cycles/README.md.
@@ -103,6 +110,28 @@ import TOML
         fdS = (integrate_flow(VanDerPol(1.0 + e), x0v, T, N).xT .-
                integrate_flow(VanDerPol(1.0 - e), x0v, T, N).xT) ./ (2 * e)
         @test maximum(abs.(fdS .- fls.S[:, 1])) < 1e-6
+    end
+
+    # ------------------------------------------------------------------
+    @testset "fixed-N discrete period sensitivity (coarse mesh)" begin
+        # With N fixed, h = T/N changes with T, so d x(T)/d T of the DISCRETE
+        # map is not f(x(T)) (continuous-flow identity, O(h^4) off). The
+        # period-sensitivity column P must match a fixed-N central finite
+        # difference in T to FD accuracy, and the naive column must be
+        # visibly worse on this coarse (but stable) mesh.
+        for (m, x0, T, N) in ((sl_m, [0.7071, 0.0123], 4.7, 64),
+                              (vdp_m, [1.3, -0.7], 6.5, 64))
+            fl = integrate_flow(m, x0, T, N; period_sensitivity=true)
+            @test fl.P !== nothing
+            delta = 1e-5
+            flp = integrate_flow(m, x0, T + delta, N)
+            flm = integrate_flow(m, x0, T - delta, N)
+            fdT = (flp.xT .- flm.xT) ./ (2 * delta)
+            errP = maximum(abs.(fl.P .- fdT))
+            errF = maximum(abs.(rhs(m, fl.xT) .- fdT))
+            @test errP < 1e-6                       # P is the exact discrete derivative
+            @test errF > 10 * errP                   # naive f(x(T)) is O(h^4) off here
+        end
     end
 
     # ------------------------------------------------------------------
@@ -354,6 +383,40 @@ import TOML
     end
 
     # ------------------------------------------------------------------
+    @testset "inference result self-consistency after max_iter exit" begin
+        # Regression (post-review): the loop used to update theta and exit at
+        # max_iter/stall without re-evaluating, so residual_scaled/final_obs/
+        # mismatch described the PREVIOUS iterate. Every reported field must
+        # describe theta_hat.
+        mk = theta -> StuartLandau(theta[1], theta[2])
+        cfg = InferenceConfig(mk, sl_setup_fx.section, sl_setup_fx.x_eq,
+                              [sl_setup_fx.x_eq], 256, [:radius, :period],
+                              [2.0, 2 * pi])
+        target = observables_from_solution(cfg, sl_ref_sol)
+        theta0 = [0.35, 1.0]
+        tol_mis = 0.1
+        res1 = infer_parameters(theta0, target, cfg; s_warm=sl_ref_sol.s,
+                                T_warm=sl_ref_sol.T, max_iter=1,
+                                tol_mismatch=tol_mis)
+        @test res1.status == :max_iter
+        @test norm(res1.theta_hat .- theta0) > 0        # a nonzero GN update was applied
+        @test length(res1.trace_thetas) == 2            # theta0 plus one update
+        @test length(res1.trace_residuals) == 1         # raw in-loop history only
+        # self-consistency: recompute the fitted state at theta_hat, using
+        # the same warm start the re-evaluation inside infer_parameters saw
+        # (the (s, T) of the iteration-1 solve), so the recompute is
+        # bit-identical and the equality checks below are exact
+        fwd0 = forward_solve(theta0, cfg, sl_ref_sol.s, sl_ref_sol.T)
+        @test fwd0.ok
+        fwd1 = forward_solve(res1.theta_hat, cfg, fwd0.s, fwd0.T)
+        @test fwd1.ok
+        @test norm(res1.final_obs .- fwd1.obs) < 1e-12
+        res_check = norm((fwd1.obs .- target) ./ cfg.scales)
+        @test abs(res1.residual_scaled - res_check) < 1e-12
+        @test res1.mismatch == (res_check > tol_mis)
+    end
+
+    # ------------------------------------------------------------------
     @testset "inference gradients: implicit vs FD vs analytic" begin
         mk = theta -> StuartLandau(theta[1], theta[2])
         cfg = InferenceConfig(mk, sl_setup_fx.section, sl_setup_fx.x_eq,
@@ -371,6 +434,31 @@ import TOML
                                       h_fd=1e-5)
         @test Jfd !== nothing
         @test maximum(abs.(Jfd .- Jim)) < 1e-4
+    end
+
+    # ------------------------------------------------------------------
+    @testset "implicit gradient = derivative of the converged discrete solve" begin
+        # Hand-rolled central FD of the full pipeline: every evaluation is a
+        # converged phase-fixed shooting solve at the same N, section and
+        # warm start, so the FD differentiates the converged discrete solve
+        # that the implicit path claims to differentiate exactly.
+        mk = theta -> StuartLandau(theta[1], theta[2])
+        cfg = InferenceConfig(mk, sl_setup_fx.section, sl_setup_fx.x_eq,
+                              [sl_setup_fx.x_eq], 256, [:radius, :period],
+                              [2.0, 2 * pi])
+        s_star, T_star = sl_ref_sol.s, sl_ref_sol.T
+        Jim = observables_jacobian_implicit([SL_MU, SL_OMEGA], cfg, s_star, T_star)
+        hfd = 1e-5
+        Jfd = Matrix{Float64}(undef, 2, 2)
+        for k in 1:2
+            tp = [SL_MU, SL_OMEGA]; tp[k] += hfd
+            tm = [SL_MU, SL_OMEGA]; tm[k] -= hfd
+            fp = forward_solve(tp, cfg, s_star, T_star)
+            fm = forward_solve(tm, cfg, s_star, T_star)
+            @test fp.ok && fm.ok          # both sides are converged discrete solves
+            Jfd[:, k] = (fp.obs .- fm.obs) ./ (2 * hfd)
+        end
+        @test maximum(abs.(Jim .- Jfd)) < 1e-4
     end
 
     # ------------------------------------------------------------------

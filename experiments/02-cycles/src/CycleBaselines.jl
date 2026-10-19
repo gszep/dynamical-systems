@@ -6,7 +6,10 @@ Self-contained (Julia stdlib only) baselines for experiment 02 (cycles):
 * phase-fixed periodic-orbit shooting with an unknown period on a
   transversal section (Stuart-Landau and Van der Pol models),
 * monodromy / Floquet multipliers from the discrete variational equations,
-  which are the exact Jacobian of the RK4 discrete flow map,
+  which are the exact x0-Jacobian of the RK4 discrete flow map, together
+  with the exact fixed-N period sensitivity d x(T)/d T (the step size
+  h = T/N changes with T, so the continuous-flow identity f(x(T)) is only
+  O(h^4) accurate for the discrete map and is never used in a Jacobian),
 * parameter sensitivities and implicit differentiation of cycle
   observables through the phase-fixed shooting solve,
 * Hopf detection at equilibria, nonzero-orbit guards against spurious
@@ -136,76 +139,105 @@ end
 
 struct FlowResult
     xT::Vector{Float64}
-    Psi::Matrix{Float64}                 # monodromy; exact Jacobian of the discrete RK4 map
-    S::Union{Matrix{Float64}, Nothing}   # d x(T) / d theta; exact for the discrete map
+    Psi::Matrix{Float64}                 # exact d x_T / d x0 of the fixed-N discrete map
+    P::Union{Vector{Float64}, Nothing}   # exact d x_T / d T of the fixed-N discrete map
+    S::Union{Matrix{Float64}, Nothing}   # exact d x_T / d theta of the fixed-N discrete map
     ts::Union{Vector{Float64}, Nothing}
     xs::Union{Matrix{Float64}, Nothing}
     N::Int
     h::Float64
 end
 
-# One RK4 step of the joint (state, variational, parameter-sensitivity)
-# system. Because every RK4 stage of the state is a smooth function of x0
-# and theta, differentiating the discrete map commutes with this
-# integration: Psi is exactly d x_T / d x0 and S is exactly d x_T / d theta
-# of the discrete flow (in exact arithmetic).
-function rk4_joint_step(m, x, Psi, S, h, jacfn)
+# One RK4 step of the joint (state, variational, period-sensitivity,
+# parameter-sensitivity) system. Because every RK4 stage of the state is a
+# smooth function of x0, T and theta, differentiating the discrete map
+# commutes with this integration: Psi is exactly d x_T / d x0 and S is
+# exactly d x_T / d theta of the N-step map (in exact arithmetic).
+#
+# The period sensitivity P answers a subtler question: with N FIXED, the
+# step size h = T/N changes with T, so d x_T / d T is NOT f(x(T)) (that
+# identity holds only for the continuous flow; for the fixed-N discrete
+# map it is off by O(h^4)). Write the N-step map as RK4 on the
+# time-rescaled system dx/dtau = T*f(x), tau in [0,1], with N steps of
+# size 1/N: the iterates are identical because RK4 stages are homogeneous
+# in the step size, and T becomes an ordinary parameter of the rescaled
+# rhs. Its sensitivity equation, translated back to physical time
+# (dtau = dt/T), is
+#     P' = J(x) P + f(x)/T,   P(0) = 0,
+# so P(T) is the exact derivative of the fixed-N discrete map with respect
+# to the period.
+function rk4_joint_step(m, x, Psi, S, P, h, invT, jacfn)
     J1 = jacfn(m, x)
     k1 = rhs(m, x)
     K1 = J1 * Psi
     L1 = (S === nothing) ? nothing : J1 * S + param_rhs(m, x)
+    M1 = (P === nothing) ? nothing : J1 * P .+ invT .* k1
 
-    x2 = x .+ (h/2) .* k1
-    P2 = Psi .+ (h/2) .* K1
-    S2 = (S === nothing) ? nothing : S .+ (h/2) .* L1
-    J2 = jacfn(m, x2)
-    k2 = rhs(m, x2)
-    K2 = J2 * P2
-    L2 = (S === nothing) ? nothing : J2 * S2 + param_rhs(m, x2)
+    x2  = x   .+ (h/2) .* k1
+    Ps2 = Psi .+ (h/2) .* K1
+    S2  = (S  === nothing) ? nothing : S  .+ (h/2) .* L1
+    P2  = (P  === nothing) ? nothing : P  .+ (h/2) .* M1
+    J2  = jacfn(m, x2)
+    k2  = rhs(m, x2)
+    K2  = J2 * Ps2
+    L2  = (S  === nothing) ? nothing : J2 * S2 + param_rhs(m, x2)
+    M2  = (P  === nothing) ? nothing : J2 * P2 .+ invT .* k2
 
-    x3 = x .+ (h/2) .* k2
-    P3 = Psi .+ (h/2) .* K2
-    S3 = (S === nothing) ? nothing : S .+ (h/2) .* L2
-    J3 = jacfn(m, x3)
-    k3 = rhs(m, x3)
-    K3 = J3 * P3
-    L3 = (S === nothing) ? nothing : J3 * S3 + param_rhs(m, x3)
+    x3  = x   .+ (h/2) .* k2
+    Ps3 = Psi .+ (h/2) .* K2
+    S3  = (S  === nothing) ? nothing : S  .+ (h/2) .* L2
+    P3  = (P  === nothing) ? nothing : P  .+ (h/2) .* M2
+    J3  = jacfn(m, x3)
+    k3  = rhs(m, x3)
+    K3  = J3 * Ps3
+    L3  = (S  === nothing) ? nothing : J3 * S3 + param_rhs(m, x3)
+    M3  = (P  === nothing) ? nothing : J3 * P3 .+ invT .* k3
 
-    x4 = x .+ h .* k3
-    P4 = Psi .+ h .* K3
-    S4 = (S === nothing) ? nothing : S .+ h .* L3
-    J4 = jacfn(m, x4)
-    k4 = rhs(m, x4)
-    K4 = J4 * P4
-    L4 = (S === nothing) ? nothing : J4 * S4 + param_rhs(m, x4)
+    x4  = x   .+ h .* k3
+    Ps4 = Psi .+ h .* K3
+    S4  = (S  === nothing) ? nothing : S  .+ h .* L3
+    P4  = (P  === nothing) ? nothing : P  .+ h .* M3
+    J4  = jacfn(m, x4)
+    k4  = rhs(m, x4)
+    K4  = J4 * Ps4
+    L4  = (S  === nothing) ? nothing : J4 * S4 + param_rhs(m, x4)
+    M4  = (P  === nothing) ? nothing : J4 * P4 .+ invT .* k4
 
-    xn = x .+ (h/6) .* (k1 .+ (2 .* k2) .+ (2 .* k3) .+ k4)
-    Pn = Psi .+ (h/6) .* (K1 .+ (2 .* K2) .+ (2 .* K3) .+ K4)
-    Sn = (S === nothing) ? nothing :
-         S .+ (h/6) .* (L1 .+ (2 .* L2) .+ (2 .* L3) .+ L4)
-    return xn, Pn, Sn
+    xn  = x   .+ (h/6) .* (k1 .+ (2 .* k2) .+ (2 .* k3) .+ k4)
+    Psn = Psi .+ (h/6) .* (K1 .+ (2 .* K2) .+ (2 .* K3) .+ K4)
+    Sn  = (S  === nothing) ? nothing :
+          S .+ (h/6) .* (L1 .+ (2 .* L2) .+ (2 .* L3) .+ L4)
+    Pn  = (P  === nothing) ? nothing :
+          P .+ (h/6) .* (M1 .+ (2 .* M2) .+ (2 .* M3) .+ M4)
+    return xn, Psn, Sn, Pn
 end
 
 """
-    integrate_flow(m, x0, T, N; sensitivities=false, record=false, jac=:analytic)
+    integrate_flow(m, x0, T, N; sensitivities=false, period_sensitivity=false,
+                   record=false, jac=:analytic)
 
 RK4 integration of the flow of `m` from `x0` over time `T` with `N` uniform
-steps, jointly with the variational equations (monodromy Psi) and, if
-requested, the parameter sensitivities S. `jac` can be `:analytic` or
-`:fd` (finite-difference Jacobian of the rhs, for models without an
-analytic Jacobian).
+steps, jointly with the variational equations (monodromy Psi = d x_T/d x0),
+the exact fixed-N period sensitivity (P = d x_T/d T; step size h = T/N
+varies with T, so this is NOT f(x(T)), which is exact only for the
+continuous flow) and, if requested, the parameter sensitivities S.
+`jac` can be `:analytic` or `:fd` (finite-difference Jacobian of the rhs,
+for models without an analytic Jacobian).
 """
 function integrate_flow(m::AbstractCycleModel, x0, T::Real, N::Integer;
-                        sensitivities::Bool=false, record::Bool=false,
+                        sensitivities::Bool=false, period_sensitivity::Bool=false,
+                        record::Bool=false,
                         jac::Symbol=:analytic, h_fd::Real=1e-6)
     N >= 1 || throw(ArgumentError("N must be >= 1"))
     T > 0 || throw(ArgumentError("T must be positive"))
     n = length(x0)
     h = T / N
+    invT = 1.0 / T
     jacfn = (jac === :fd) ? ((mm, xx) -> fd_jacobian(mm, xx; h=h_fd)) : jacobian
     x = Vector{Float64}(x0)
     Psi = Matrix{Float64}(I, n, n)
     S = sensitivities ? zeros(n, nparams(m)) : nothing
+    P = period_sensitivity ? zeros(n) : nothing
     ts = record ? Vector{Float64}(undef, N + 1) : nothing
     xs = record ? Matrix{Float64}(undef, n, N + 1) : nothing
     if record
@@ -213,13 +245,13 @@ function integrate_flow(m::AbstractCycleModel, x0, T::Real, N::Integer;
         xs[:, 1] = x
     end
     for i in 1:N
-        x, Psi, S = rk4_joint_step(m, x, Psi, S, h, jacfn)
+        x, Psi, S, P = rk4_joint_step(m, x, Psi, S, P, h, invT, jacfn)
         if record
             ts[i + 1] = i * h
             xs[:, i + 1] = x
         end
     end
-    return FlowResult(x, Psi, S, ts, xs, N, h)
+    return FlowResult(x, Psi, P, S, ts, xs, N, h)
 end
 
 # -----------------------------------------------------------------------
@@ -357,9 +389,12 @@ on the transversal `section`:
     x0(s) = xa + s*dhat,
 
 by damped Newton with backtracking on the residual. The Jacobian is
-    dG = [Psi*dhat - dhat  |  f(x(T))]
-with Psi the monodromy of the same RK4 discretization (so the Newton system
-is the exact derivative of the discrete residual).
+    dG = [Psi*dhat - dhat  |  P]
+with Psi = d x(T)/d x0 and P = d x(T)/d T the EXACT derivatives of the
+fixed-N RK4 map (N steps of h = T/N). P accounts for the step size
+changing with T via the time-rescaled formulation (see rk4_joint_step):
+the continuous-flow identity d x(T)/d T = f(x(T)) would be off by O(h^4),
+so it is not used anywhere in the Newton system.
 
 Keyword arguments:
 - `eqs`: known equilibria (Vector of points). Used by the nonzero-orbit
@@ -415,7 +450,8 @@ function solve_cycle(m::AbstractCycleModel, section::Section, s0::Real, T0::Real
 
     function residual_at(sv, Tv)
         x0v = point_on_section(section, sv)
-        fl = integrate_flow(m, x0v, Tv, N; record=false, jac=jac, h_fd=h_fd)
+        fl = integrate_flow(m, x0v, Tv, N; period_sensitivity=true,
+                            record=false, jac=jac, h_fd=h_fd)
         return fl.xT .- x0v, fl
     end
 
@@ -454,7 +490,7 @@ function solve_cycle(m::AbstractCycleModel, section::Section, s0::Real, T0::Real
         if iters >= max_iter
             break
         end
-        J = hcat(flow.Psi * section.dhat .- section.dhat, rhs(m, flow.xT))
+        J = hcat(flow.Psi * section.dhat .- section.dhat, flow.P)
         if deflate && !isempty(eqs)
             gs = 0.0
             for eq in eqs
@@ -878,12 +914,16 @@ converged phase-fixed shooting system:
 
     J_red * d(s, T)/d theta_k = -S(T)[:, k],
 
-with J_red = [Psi*dhat - dhat, f(x(T))] and S the parameter-sensitivity
-solution of the discrete variational equations. This is the cycle analogue
-of the implicit layer used for equilibrium bifurcations in the NeurIPS
-2021 work. Requires observables subset of (:radius, :period) and an
-analytic `param_rhs` (no :logmult gradient: that would need second-order
-sensitivity machinery, listed as future work in the README).
+with J_red = [Psi*dhat - dhat, P] the EXACT Jacobian of the fixed-N
+discrete residual (P the exact discrete period sensitivity, NOT the
+continuous-flow identity f(x(T)), which is only O(h^4) accurate for the
+discrete map), and S the parameter-sensitivity solution of the discrete
+variational equations. This is the cycle analogue of the implicit layer
+used for equilibrium bifurcations in the NeurIPS 2021 work, and it is the
+exact derivative of the converged discrete solve. Requires observables
+subset of (:radius, :period) and an analytic `param_rhs` (no :logmult
+gradient: that would need second-order sensitivity machinery, listed as
+future work in the README).
 """
 function observables_jacobian_implicit(theta::Vector{Float64}, cfg::InferenceConfig,
                                        s_star::Float64, T_star::Float64)
@@ -891,8 +931,9 @@ function observables_jacobian_implicit(theta::Vector{Float64}, cfg::InferenceCon
         throw(ArgumentError("implicit gradient supports only :radius and :period"))
     m = cfg.make_model(theta)
     x0 = point_on_section(cfg.section, s_star)
-    fl = integrate_flow(m, x0, T_star, cfg.N; sensitivities=true, record=false, jac=cfg.jac)
-    Jred = hcat(fl.Psi * cfg.section.dhat .- cfg.section.dhat, rhs(m, fl.xT))
+    fl = integrate_flow(m, x0, T_star, cfg.N; sensitivities=true,
+                        period_sensitivity=true, record=false, jac=cfg.jac)
+    Jred = hcat(fl.Psi * cfg.section.dhat .- cfg.section.dhat, fl.P)
     p = nparams(m)
     Jout = Matrix{Float64}(undef, length(cfg.obs), p)
     rr = norm(x0 .- cfg.eq_ref)
@@ -929,7 +970,7 @@ end
 
 struct InferenceResult
     status::Symbol   # :recovered, :max_iter, :stalled, :forward_failure, :gradient_failure
-    mismatch::Bool   # final scaled residual exceeded tol_mismatch
+    mismatch::Bool   # residual_scaled (evaluated at theta_hat) exceeded tol_mismatch
     message::String
     theta_hat::Vector{Float64}
     residual_scaled::Float64
@@ -950,6 +991,13 @@ normalize the residual (default meaning documented in the README).
 for noisy fits, or to the mismatch scale you care about for consistency
 checks. Statuses are honest: overdetermined inconsistent targets stall at
 a nonzero residual and are flagged, never silently "recovered".
+
+Self-consistency: the returned fields always describe `theta_hat`. If the
+loop exits without recovering (max_iter, stall, gradient failure), the
+forward map is re-evaluated at the returned theta so `residual_scaled`,
+`final_obs` and `mismatch` match it (`trace_*` remain the raw iteration
+history; if the forward map fails at the final theta, `residual_scaled`
+is NaN and `mismatch` is false, with the failure in `message`).
 """
 function infer_parameters(theta0::Vector{Float64}, target_obs::Vector{Float64},
                            cfg::InferenceConfig; s_warm::Float64, T_warm::Float64,
@@ -1030,6 +1078,26 @@ function infer_parameters(theta0::Vector{Float64}, target_obs::Vector{Float64},
             end
         else
             stall = 0
+        end
+    end
+    # The loop can exit (max_iter, stall, gradient failure) immediately
+    # after a theta update, which would leave res/obs_final describing the
+    # PREVIOUS iterate while theta_hat is the updated one. Re-evaluate the
+    # fitted state at the returned theta so residual_scaled, final_obs and
+    # mismatch are always self-consistent with theta_hat. (:recovered exits
+    # with res/obs_final already evaluated at theta; trace_* remain the raw
+    # in-loop iteration history.)
+    if status != :recovered
+        fwd_final = forward_solve(theta, cfg, sw, Tw)
+        if fwd_final.ok
+            obs_final = fwd_final.obs
+            res = norm((fwd_final.obs .- target_obs) ./ cfg.scales)
+        else
+            # forward map not evaluable at theta_hat (e.g. a bounds or
+            # shooting failure): report that honestly instead of a stale
+            # residual from a different theta
+            obs_final = Float64[]
+            res = NaN
         end
     end
     mismatch = isfinite(res) && (res > tol_mismatch)
