@@ -1,0 +1,3 @@
+mu,setup_ok,setup_message,solve_status,resnorm,iters
+0,true,settle ok,NewtonNotConverged,6.5178522449890276e-09,36
+-0.5,true,settle ok,NewtonNotConverged,4.8907393153315029e-10,7

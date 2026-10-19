@@ -18,10 +18,17 @@
 #     identity f(x(T)) is O(h^4) off for the fixed-N map and is never used
 #     in a Jacobian);
 #   * result self-consistency: inference return fields always describe
-#     theta_hat (max_iter=1 regression test, including the mismatch flag).
+#     theta_hat (max_iter=1 regression test, including the mismatch flag);
+#   * neutral-multiplier expectations follow the measured + proven
+#     structure: the phase multiplier is exactly 1 for the discrete map
+#     (SL: proven by discrete rotational equivariance; vdp: measured at
+#     the roundoff floor, no h-scaling), so only a roundoff-level bound is
+#     asserted on |lambda_1 - 1|, while the genuine O(h^4) phase-structure
+#     quantity -- the invariance residual ||Psi f - f||/||f|| -- carries
+#     the order check.
 #
-# Validation status at authoring time: NOT executed (package setup was
-# running concurrently). See experiments/02-cycles/README.md.
+# Validation status: executed 2026-10-20 (single process, one thread);
+# see experiments/02-cycles/README.md for measured evidence.
 
 include(joinpath(@__DIR__, "src", "CycleBaselines.jl"))
 using .CycleBaselines
@@ -142,9 +149,19 @@ import TOML
         fl = sl_ref_sol.floquet
         @test fl.neutral_count == 1
         @test fl.classification == :stable_cycle
-        @test abs(fl.multipliers[1] - 1) < 2e-4          # phase multiplier ~ 1
+        # The phase multiplier is EXACTLY 1 for the discrete map: RK4 stages
+        # commute with rotations and the SL field is rotation-equivariant, so
+        # a converged fixed point comes with a whole circle of exact fixed
+        # points and Psi fixes the rotation tangent. The measured deviation
+        # is solve tolerance + roundoff (1.7e-15 here; worst observed
+        # 1.0e-11 at the default Newton tolerance, residual-path driven).
+        @test abs(fl.multipliers[1] - 1) < 1e-9
         @test abs(fl.multipliers[2] - sl_an["radial_multiplier"]) < 1e-4  # exp(-2 mu T)
-        @test fl.invariance_residual < 1e-3              # Psi f(x0) ~ f(x0)
+        # f(x0) is NOT the exact eigenvector: at the discrete fixed point it
+        # carries an O(h^4) radial component. This invariance residual is the
+        # quantity that genuinely converges at O(h^4) (measured 1.2e-9 at
+        # N=256, decreasing like h^4 across N).
+        @test fl.invariance_residual < 1e-7
         @test sl_ref_sol.diagnostics["transversality"] > 1e-3
         @test sl_ref_sol.resnorm <= 1e-10 * max(1, norm(sl_ref_sol.x0))
         @test !sl_ref_sol.diagnostics["near_degenerate"]
@@ -161,15 +178,21 @@ import TOML
             @test sol.status == SolveSuccess
             s_w, T_w = sol.s, sol.T
             rr = norm(sol.x0 .- sl_setup_fx.x_eq)
+            # columns: err period, err radius, err radial multiplier,
+            # |lambda_1 - 1| (neutral deviation), invariance residual
             errs[N] = [abs(sol.T - sl_an["period"]),
                        abs(rr - sl_an["radius"]),
                        abs(sol.floquet.multipliers[2] - sl_an["radial_multiplier"]),
-                       abs(sol.floquet.multipliers[1] - 1.0)]
+                       abs(sol.floquet.multipliers[1] - 1.0),
+                       sol.floquet.invariance_residual]
             @test all(isfinite, errs[N])
         end
+        # Period, radius, radial multiplier and the invariance residual are
+        # genuine O(h^4) quantities (measured orders ~4.0/4.0/4.1/4.0):
+        # strict monotone refinement gain plus floor-guarded order.
         for k in 1:(length(Ns) - 1)
-            @test all(errs[Ns[k + 1]] .< errs[Ns[k]])    # monotone refinement gain
-            for c in 1:4
+            @test all(errs[Ns[k + 1]][[1, 2, 3, 5]] .< errs[Ns[k]][[1, 2, 3, 5]])
+            for c in (1, 2, 3, 5)
                 # only assert an order where both errors are above the
                 # roundoff floor (honest: no order claims from floor noise)
                 if errs[Ns[k]][c] > 1e-9 && errs[Ns[k + 1]][c] > 1e-12
@@ -178,6 +201,19 @@ import TOML
                     @test 3.0 <= p <= 50.0
                 end
             end
+        end
+        # The neutral deviation |lambda_1 - 1| carries NO order signal and
+        # must not be asserted monotone: RK4 preserves the rotational
+        # equivariance of the SL field exactly, so the converged fixed point
+        # has a whole exact circle of fixed points and the phase multiplier
+        # is EXACTLY 1 for the discrete map at every N. The measured
+        # deviation (6.7e-16 .. 1.0e-11 over N=32..256) is driven by the
+        # accepted Newton residual and roundoff, is non-monotone, and the
+        # 1.0e-11 excursion at N=128 is a residual-path artifact (it does
+        # not reappear at tighter tol_newton). Assert the symmetry-
+        # predicted roundoff level instead of an invalid order claim.
+        for N in Ns
+            @test errs[N][4] < 1e-9
         end
         # cross-grid consistency: the finer map nearly closes at the solution
         fl512 = integrate_flow(sl_m, sl_ref_sol.x0, sl_ref_sol.T, 512)
@@ -226,9 +262,14 @@ import TOML
         fl = sol.floquet
         @test fl.neutral_count == 1
         @test fl.classification == :stable_cycle
-        @test abs(fl.multipliers[1] - 1) < 1e-3
+        # measured: the phase multiplier sits at the variational roundoff-
+        # accumulation floor (8.9e-16 here), not at an O(h^4) distance --
+        # see the convergence testset for the full discussion
+        @test abs(fl.multipliers[1] - 1) < 1e-9
         @test 0 < abs(fl.multipliers[2]) < 0.99         # attracting, non-neutral
-        @test fl.invariance_residual < 1e-2
+        # f(x0) is off the exact eigenvector by an O(h^4) component
+        # (measured 3.2e-7 at N=256)
+        @test fl.invariance_residual < 1e-5
         @test sol.diagnostics["transversality"] > 1e-3
         # cross-grid: the N=512 map must nearly close at the N=256 solution
         fl512 = integrate_flow(vdp_m, sol.x0, sol.T, 512)
@@ -240,12 +281,16 @@ import TOML
         Ns = [64, 128, 256, 512]
         s_w, T_w = vdp_setup_fx.s0, vdp_setup_fx.T0
         Ts = Float64[]
+        invars = Float64[]
+        devs = Float64[]
         for N in Ns
             sol = solve_cycle(vdp_m, vdp_setup_fx.section, s_w, T_w, N;
                               eqs=[vdp_setup_fx.x_eq])
             @test sol.status == SolveSuccess
             s_w, T_w = sol.s, sol.T
             push!(Ts, sol.T)
+            push!(invars, sol.floquet.invariance_residual)
+            push!(devs, abs(sol.floquet.multipliers[1] - 1))
         end
         d1 = abs(Ts[2] - Ts[1])
         d2 = abs(Ts[3] - Ts[2])
@@ -254,6 +299,30 @@ import TOML
         @test d1 > 1e-9                                  # above the roundoff floor
         ratio = d2 / d3
         @test 4 <= ratio <= 64                           # observed order in [2, 6]
+        # vdp has no rotational symmetry, so the neutral eigenvalue's exact
+        # unit value is NOT protected by an equivariance proof the way it is
+        # for Stuart-Landau; it is MEASURED at the variational roundoff-
+        # accumulation floor with no h-scaling (<= 1.4e-13 over N=64..512,
+        # non-monotone, insensitive to tol_newton below ~1e-13), consistent
+        # with RK backward error analysis (the map matches the exact flow
+        # of a modified field to all algebraic orders). No order claim is
+        # made for the eigenvalue itself.
+        for dev in devs
+            @test dev < 1e-9
+        end
+        # The genuine O(h^4) phase-structure error for this non-symmetric
+        # system is the invariance residual ||Psi f - f||/||f||: at the
+        # discrete fixed point f(x0) acquires an O(h^4) component off the
+        # exact eigenvector. Measured: 1.02e-4 -> 5.50e-6 -> 3.20e-7 ->
+        # 1.93e-8 over N=64..512 (orders 4.22, 4.10, 4.05).
+        for k in 1:(length(Ns) - 1)
+            @test invars[k + 1] < invars[k]
+            if invars[k] > 1e-9 && invars[k + 1] > 1e-12
+                p = log(invars[k] / invars[k + 1]) / log(2)
+                @test isfinite(p)
+                @test 3.0 <= p <= 50.0
+            end
+        end
     end
 
     # ------------------------------------------------------------------

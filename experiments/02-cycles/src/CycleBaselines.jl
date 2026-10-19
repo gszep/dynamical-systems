@@ -21,9 +21,9 @@ closed-form Stuart-Landau values (radius sqrt(mu), period 2*pi/omega,
 multipliers {1, exp(-2*mu*T)}) are exposed only so that tests and reports
 can compare against an independent reference.
 
-Validation status at authoring time: this file was written while package
-setup was running concurrently and has NOT been executed. See
-experiments/02-cycles/README.md.
+Validation status: executed 2026-10-20 (single process, one Julia/BLAS/OMP
+thread) together with tests.jl and main.jl; measured evidence in
+results/02-cycles/ and experiments/02-cycles/README.md.
 """
 module CycleBaselines
 

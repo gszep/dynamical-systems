@@ -6,13 +6,15 @@ stability from numerically integrated variational equations, and an independent
 analytic Hopf/Stuart–Landau reference. Julia **stdlib only** (`LinearAlgebra`,
 `Printf`, `Random`, `Test`, `TOML`) — no packages, no builds.
 
-**Validation status at authoring time: NOT EXECUTED.** This code was written while
-package setup was running concurrently in the parent repository; no Julia process
-was started, no test was run and no number below has been confirmed by this
-author. Everything in the "expected results" section is a documented prediction,
-not a measurement. The parent orchestrator runs `tests.jl` and `main.jl` after
-setup completes and records evidence in `EXPERIMENTS.md` (which this experiment
-deliberately does not edit — root files are owned by the integrator).
+**Validation status: EXECUTED 2026-10-20** on this host (single process, one
+Julia/BLAS/OMP thread, Julia 1.10.11 from the pinned repo-local runtime).
+Measured evidence: test suite **223/223 pass** (~35 s wall); smoke run
+**10/10 scenarios within their declared acceptance sets, exit 0** (~28 s wall;
+per-scenario timings in `results/02-cycles/summary.toml`). Artifacts are
+committed under `results/02-cycles/`. These are measurements for *these*
+scenarios on *this* host with the pinned runtime — evidence for the pipeline's
+design contract, not a universal or exhaustive scientific claim, and no CI
+configuration exists (per AGENTS.md, none is claimed).
 
 ## What is and is not claimed
 
@@ -160,9 +162,9 @@ central finite differences of the discrete map in `x0` and in `T` at `N` fixed
 
 Multiplier semantics, checked explicitly:
 
-- the **phase direction is neutral**: `|lambda_1 - 1| = O(h^4)` (invariance
-  residual `|Psi f(x0) - f(x0)|/|f(x0)|` is asserted), and this neutral
-  multiplier is *not* a stability statement;
+- the **phase direction is neutral** and this neutral multiplier is *not* a
+  stability statement; the discrete structure is now measured and understood
+  (see the next subsection);
 - **stability** is decided by the remaining multipliers
   (`exp(-2*mu*T)` for Stuart–Landau);
 - the classification tolerance `tol_neutral = 5e-4` defines an honest
@@ -171,6 +173,42 @@ Multiplier semantics, checked explicitly:
   indistinguishable from neutral and is flagged `:degenerate_neutral`
   — a classification limit, while the *measured* multiplier gap
   `|lambda_2 - 1|` remains accurate and is reported alongside.
+
+### The neutral multiplier of the discrete map (measured + proven)
+
+A review-driven diagnosis corrected our initial expectation that
+`|lambda_1 - 1| = O(h^4)`. That is false, and the measured structure is
+sharper:
+
+- **Stuart–Landau (proven exact)**: the SL field is rotation-equivariant,
+  `f(R_phi x) = R_phi f(x)`, and RK4 preserves this exactly (each stage is
+  `f` at a rotated point, and rotations commute with the affine stage
+  combinations). Hence the N-step period-T map obeys
+  `Phi(R_phi x) = R_phi Phi(x)`, a converged fixed point `x*` comes with a
+  whole *exact circle* of fixed points `R_phi x*`, and differentiating that
+  identity gives `Psi (R' x*) = R' x*`: the phase multiplier is **exactly 1**
+  for the discrete map at every N. Measured deviation: `6.7e-16 .. 1.0e-11`
+  over N = 32..256 — non-monotone, driven by the accepted Newton residual
+  and roundoff, with no order signal. Order/monotonicity assertions on it
+  are invalid; the tests assert the symmetry-predicted roundoff level
+  (`< 1e-9`) instead.
+- **Van der Pol (measured, no symmetry proof)**: vdp has no rotational
+  symmetry, yet the measured `|lambda_1 - 1|` likewise sits at the
+  variational roundoff-accumulation floor (`<= 1.4e-13` over N = 64..512),
+  does not scale with `h` and is insensitive to `tol_newton` below ~1e-13
+  (verified by a tolerance-scaling experiment). This is consistent with RK
+  backward error analysis — the map agrees with the exact flow of a
+  modified field to all algebraic orders, and exact flows have exact unit
+  phase multipliers — but we state it as a measured regularity, not a
+  theorem.
+- **The genuine O(h^4) phase-structure error** is carried by the *invariance
+  residual* `|Psi f(x0) - f(x0)|/|f(x0)|`: at a discrete fixed point,
+  `f(x0)` acquires an O(h^4) component off the exact eigenvector. Measured:
+  SL `5.2e-6 -> 3.2e-7 -> 1.9e-8 -> 1.2e-9` (N = 32..256, order 4.0
+  throughout) and vdp `1.02e-4 -> 5.50e-6 -> 3.20e-7 -> 1.93e-8`
+  (N = 64..512, orders 4.22/4.10/4.05). The convergence tests assert
+  order ~4 on THIS quantity (and on period, radius, radial multiplier), not
+  on the eigenvalue deviation.
 
 ### Hopf detection (independent of the cycle solve)
 
@@ -289,27 +327,44 @@ cross-grid recheck uses `N = 512` on a `N = 256` solution). Expected wall
 time: the full run in seconds to ~a minute on the 12-core macOS host; the
 three-process parent budget is respected trivially by this single process.
 
-## Expected results (predictions pending the first execution)
+## Measured outcomes (run of 2026-10-20, this host, pinned Julia 1.10.11)
 
-| Scenario | Expected outcome |
+Test suite: **223/223 pass** (~35 s wall, single thread). Smoke run:
+**10/10 scenarios within their acceptance sets, exit 0**, total 27.5 s
+(setup 0.34 s; per-scenario timings in `results/02-cycles/summary.toml`).
+These numbers are per-run measurements on this host, not universal claims.
+
+| Scenario | Measured outcome |
 |---|---|
-| `sl_reference` | success; `T = 4.83322`, radius `= 0.70711`, multipliers `{1 + O(h^4), 7.96e-3}`; one neutral, `:stable_cycle`; invariance residual ~1e-7..1e-5 |
-| `sl_convergence` | errors in (T, radius, radial multiplier, neutral deviation) decay ~ `N^-4`; observed orders ~4 between successive N while above the ~1e-12 floor |
-| `hopf_amplitude` | `mu_H = 0 +- 1e-6`, transversality `1 +- 0.5`; radius law `r(mu)/sqrt(mu) -> 1` at mu = 1e-2, 1e-4; `:degenerate_neutral` at mu = 1e-6 with gap ~9.7e-6 |
-| `negative_mu` | no fake cycle: guard rejection or non-convergence at mu = 0 and mu = -0.5; recorded as honest negative outcomes |
-| `inference` | same-N recovery to ~1e-8; cross-N (512 -> 256) recovery limited by discretization (< 1e-3); noisy recovery within linearized bounds (expected ~0.01 in mu, ~0.18 in omega); implicit gradient = FD gradient = analytic gradient |
-| `inconsistent_observable` | consistent triple fits exactly; multiplier-squared triple stalls with scaled residual ~0.5 and is flagged |
-| `vdp_reference` | success with structural checks only (no closed form); one neutral multiplier, second multiplier real in (0, 0.99); cross-grid gap ~ h(256)^4 scale |
-| `vdp_convergence` | Richardson ratio of successive period differences ~16 (asserted within [4, 64]) |
-| `vdp_inference_crossmodel` | 1-parameter self-inference recovers mu = 1 to ~1e-8; SL `(radius, period)` fit to vdp succeeds (underdetermination of model class); adding `logmult` flags mismatch with scaled residual ~0.1..0.5 |
-| `spurious_roots` | plain Newton from the near-equilibrium, period-aligned fixtures converges to the equilibrium and is guard-rejected; deflated Newton finds the genuine cycle (SL: radius/period match the analytic reference; vdp: period agrees with the independent settle-based section solve to <1e-5) |
+| `sl_reference` | `SolveSuccess`; `T = 4.8332194817` (err 1.5e-8), radius `= 0.7071067823` (err 1.1e-9), radial multiplier err 1.8e-10, phase multiplier deviation 1.7e-15 (exactly 1 by equivariance, see above), invariance residual 1.19e-9, `:stable_cycle`, one neutral |
+| `sl_convergence` | period/radius/radial-multiplier errors decay with observed orders 3.98/4.03/4.03, 3.99/4.03/4.28, 4.00/4.02/4.16 (N = 32..512); neutral deviation flat at 6.7e-16..1.0e-11 (no order signal, as proven above) |
+| `hopf_amplitude` | `mu_H = 2.9e-11` (independent expected value 0), transversality 1.0; amplitude law `r/sqrt(mu) = 1.0000000, 0.9999996, 0.9999642` at mu = 1e-2, 1e-4, 1e-6; `:degenerate_neutral` correctly flagged at mu = 1e-6 with gap 9.67e-6 |
+| `negative_mu` | honest failures at mu = 0 and mu = -0.5: both `NewtonNotConverged` (resnorm 6.5e-9 / 4.9e-10) — accepted as the expected negative outcome; no fake cycle |
+| `inference` | same-N recovery error 8.4e-11; cross-N (512->256) error 3.9e-9 (discretization-limited as designed); seeded-noise recovery error 1.8e-2 with propagated observable error 0.037 at the injected 1% noise level; implicit-vs-FD gradient 2.7e-10; implicit-vs-analytic 1.1e-8 |
+| `inconsistent_observable` | consistent triple recovered (residual 2.2e-9); multiplier-squared triple NOT recovered, residual 0.139, mismatch flagged |
+| `vdp_reference` | `SolveSuccess`; period `T = 6.6632872562`, phase point `(1.98178, -0.27635)`, multipliers `{1 + 8.9e-16, 8.597e-4}` (attracting, non-neutral), cross-grid gap at N=512 ~1e-10-scale, invariance residual 3.2e-7 |
+| `vdp_convergence` | period differences shrink with Richardson ratios 15.0/15.6 (asserted in [4,64]); invariance residual decays with orders 4.22/4.10/4.05 (the genuine O(h^4) phase-structure quantity); neutral deviation <= 1.4e-13 with no h-scaling |
+| `vdp_inference_crossmodel` | self-inference error 7.8e-13; SL `(radius, period)` fit to vdp recovers (residual 8.3e-10 — model class underdetermined by two observables, as designed); adding `logmult` flags mismatch: residual 0.622, `:stalled`, not recovered |
+| `spurious_roots` | SL: plain Newton guard-rejected at the equilibrium, deflated solve matches the analytic reference (radius err 1.1e-9, period err 1.5e-8); vdp: plain rejected, deflated solve's period agrees with the independent settle-based section solve to 2.6e-14 |
 
-Failure of any of these is a real, reportable finding — the assertions encode
+### Smoke success semantics (acceptance audit)
+
+Every scenario declares an acceptance set for its outcome (`accepted` flag in
+`summary.toml`, `[audit]` block with `all_accepted`, `failed_acceptance`,
+`crashed`). Positive scenarios must actually solve/recover; explicitly negative
+scenarios (`negative_mu`, the inconsistent-observable and cross-model mismatch
+fits, the spurious-root guard cases) are accepted only when the expected
+honest failure or mismatch flag occurs. The run exits 1 on any scenario crash
+OR any outcome outside its acceptance set — a required solve that silently
+fails can no longer return exit 0, and an expected negative can no longer fail
+the run.
+
+Failure of any assertion is a real, reportable finding — the assertions encode
 the pipeline's design contract, not wishful thinking. The two vdp
-deflation/robustness cases are the highest-uncertainty predictions (their
-convergence relies on the line search, not a one-step contraction); the tests
-are written so that even there the dishonest outcome (silent fake success or
-landing on the equilibrium) is what fails.
+deflation/robustness cases were the highest-uncertainty predictions (line-search
+dependent convergence); both now pass, and even there the tests are written so
+that the dishonest outcome (silent fake success or landing on the equilibrium)
+is what fails.
 
 ## Pinned upstream references
 

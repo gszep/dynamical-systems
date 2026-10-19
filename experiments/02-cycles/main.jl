@@ -11,12 +11,16 @@
 #   julia -t 1 experiments/02-cycles/main.jl --only sl_reference
 #
 # Writes CSV/TOML artifacts into the output directory (default:
-# <repo>/results/02-cycles) and prints a report. Exit code is 1 only if a
-# scenario crashed unexpectedly (an honest negative result such as
-# "no cycle found" is a recorded outcome, not a crash).
+# <repo>/results/02-cycles) and prints a report. Each scenario declares an
+# acceptance set for its outcome via d["accepted"]: positive scenarios must
+# actually solve/recover, while explicitly negative scenarios are accepted
+# only when the expected honest failure (guard rejection, non-convergence)
+# or model-mismatch flag occurs. Exit code is 1 if a scenario crashes OR
+# lands outside its acceptance set; expected negative outcomes are accepted,
+# silent misses are not.
 #
-# Validation status at authoring time: NOT executed (package setup was
-# running concurrently). See experiments/02-cycles/README.md.
+# Validation status: executed 2026-10-20 (single process, one Julia/BLAS/OMP
+# thread); measured evidence in results/02-cycles/ and the README.
 
 const _T_MAIN_START = time_ns()
 include(joinpath(@__DIR__, "src", "CycleBaselines.jl"))
@@ -136,12 +140,14 @@ function scenario_sl_reference(opts::CliOptions)
     d["setup_message"] = setup.message
     if !setup.ok
         d["status"] = "setup_failed"
+        d["accepted"] = false
         return d
     end
     sol = solve_cycle(sl_model(), setup.section, setup.s0, setup.T0, N;
                       eqs=[setup.x_eq], model_label="stuart-landau",
                       note="reference solve from settle-based guess")
     record_solution!(d, "sol", sol)
+    d["accepted"] = (sol.status == SolveSuccess)
     ref = analytic_stuart_landau(SL_MU, SL_OMEGA)
     d["ref_period"] = ref["period"]
     d["ref_radius"] = ref["radius"]
@@ -174,15 +180,18 @@ function scenario_sl_convergence(opts::CliOptions)
     d["setup_ok"] = setup.ok
     if !setup.ok
         d["status"] = "setup_failed"
+        d["accepted"] = false
         return d
     end
     ref = analytic_stuart_landau(SL_MU, SL_OMEGA)
     s_warm, T_warm = setup.s0, setup.T0
     rows = Any[]
     prev = nothing
+    all_solved = true
     for N in Ns
         sol = solve_cycle(sl_model(), setup.section, s_warm, T_warm, N;
                           eqs=[setup.x_eq], model_label="sl-conv")
+        all_solved &= (sol.status == SolveSuccess)
         row = Any[N]
         if sol.status == SolveSuccess
             s_warm, T_warm = sol.s, sol.T
@@ -209,6 +218,7 @@ function scenario_sl_convergence(opts::CliOptions)
               "dev_neutral", "p_T", "p_radius", "p_radial_mult", "p_dev_neutral"]
     write_csv(joinpath(opts.out_dir, "sl_convergence.csv"), header, rows)
     d["status"] = "written"
+    d["accepted"] = all_solved
     return d
 end
 
@@ -236,6 +246,7 @@ function scenario_hopf_amplitude(opts::CliOptions)
     rows = Any[]
     section = nothing
     s_warm = T_warm = NaN
+    amp_ok = true
     for mu in mus
         local sol
         if mu == mus[1]
@@ -257,6 +268,7 @@ function scenario_hopf_amplitude(opts::CliOptions)
                 s_warm, T_warm = sol.s, sol.T
             end
         end
+        amp_ok &= (sol !== nothing && sol.status == SolveSuccess)
         r_ref = sqrt(mu)
         if sol !== nothing && sol.status == SolveSuccess
             r = norm(sol.x0 .- [0.0, 0.0])
@@ -274,6 +286,9 @@ function scenario_hopf_amplitude(opts::CliOptions)
               ["mu", "radius", "radius_analytic", "ratio", "gap_to_unit",
                "classification", "near_degenerate", "status", "iters"], rows)
     d["status"] = "written"
+    # positive scenario: the Hopf bracket must succeed AND every amplitude-
+    # law continuation solve must find its cycle
+    d["accepted"] = h.ok && amp_ok
     return d
 end
 
@@ -284,16 +299,25 @@ end
 function scenario_negative_mu(opts::CliOptions)
     rows = Any[]
     d = Dict{String,Any}()
+    # expected honest-failure statuses for mu <= 0: guard rejection, Newton
+    # non-convergence, or an out-of-bounds period. A SolveSuccess here would
+    # be a fake cycle and must FAIL the audit.
+    expected_fail = (string(GuardRejectedEquilibrium), string(NewtonNotConverged),
+                     string(StepOutOfBounds))
+    neg_ok = true
     for mu in (0.0, -0.5)
         m = StuartLandau(mu, SL_OMEGA)
         st = setup_cycle_scenario(m, SL_IC, 40.0, 4000; label="neg-mu=$mu")
         if !st.ok
+            # settling collapsed onto the equilibrium: no section is an
+            # honest negative outcome
             push!(rows, Any[mu, false, st.message, "no_setup", NaN, 0])
         else
             sol = solve_cycle(m, st.section, st.s0, st.T0, 256;
                               eqs=[st.x_eq], model_label="sl-neg")
             push!(rows, Any[mu, true, "settle ok", string(sol.status),
                             sol.resnorm, sol.iters])
+            neg_ok &= (string(sol.status) in expected_fail)
         end
     end
     write_csv(joinpath(opts.out_dir, "sl_negative_mu.csv"),
@@ -301,6 +325,8 @@ function scenario_negative_mu(opts::CliOptions)
               rows)
     d["note"] = "absence of a found cycle is a local search outcome, NOT a proof of nonexistence"
     d["status"] = "written"
+    # explicitly expected negative case: accepted iff every row failed honestly
+    d["accepted"] = neg_ok
     return d
 end
 
@@ -325,6 +351,7 @@ function scenario_inference(opts::CliOptions)
     d["reference_status"] = string(ref_sol.status)
     if ref_sol.status != SolveSuccess
         d["status"] = "reference_failed"
+        d["accepted"] = false
         return d
     end
     s_star, T_star = ref_sol.s, ref_sol.T
@@ -345,11 +372,13 @@ function scenario_inference(opts::CliOptions)
     # cross-N: target computed at N=512, fit at N=256 (discretization-limited)
     setup512, cfg512 = sl_inference_cfg(512, [:radius, :period], [2.0, 2 * pi])
     fwd512 = forward_solve(theta_true, cfg512, s_star, T_star)
+    cross_ok = false
     if fwd512.ok
         res2 = infer_parameters(theta0, fwd512.obs, cfg; s_warm=s_star, T_warm=T_star)
         d["crossN_status"] = string(res2.status)
         d["crossN_theta_hat"] = collect(res2.theta_hat)
         d["crossN_err"] = norm(res2.theta_hat .- theta_true)
+        cross_ok = (res2.status == :recovered)
     else
         d["crossN_status"] = "forward_failed: " * fwd512.message
     end
@@ -385,6 +414,12 @@ function scenario_inference(opts::CliOptions)
                    k <= length(res.trace_residuals) ? res.trace_residuals[k] : NaN]
                   for k in 1:length(res.trace_thetas)])
     d["status"] = "written"
+    # positive scenario: reference solve and all three fits must recover,
+    # the noisy fit must not be flagged as mismatched, and the implicit-vs-FD
+    # gradient cross-check must have been computable
+    d["accepted"] = (res.status == :recovered) && cross_ok &&
+                    (resn.status == :recovered) && !resn.mismatch &&
+                    (Jfd !== nothing)
     return d
 end
 
@@ -400,6 +435,7 @@ function scenario_inconsistent(opts::CliOptions)
                           eqs=[setup.x_eq], model_label="sl-ref-3obs")
     if ref_sol.status != SolveSuccess
         d["status"] = "reference_failed"
+        d["accepted"] = false
         return d
     end
     s_star, T_star = ref_sol.s, ref_sol.T
@@ -423,6 +459,11 @@ function scenario_inconsistent(opts::CliOptions)
     d["inconsistent_residual"] = res_bad.residual_scaled
     d["inconsistent_mismatch"] = res_bad.mismatch
     d["status"] = "written"
+    # expected-negative case: the consistent triple must be recovered
+    # exactly, while the inconsistent triple must NOT be silently recovered
+    # and must be flagged as a mismatch
+    d["accepted"] = (res_ok.status == :recovered) &&
+                    (res_bad.status != :recovered) && res_bad.mismatch
     return d
 end
 
@@ -438,12 +479,14 @@ function scenario_vdp_reference(opts::CliOptions)
     d["setup_message"] = setup.message
     if !setup.ok
         d["status"] = "setup_failed"
+        d["accepted"] = false
         return d
     end
     sol = solve_cycle(vdp_model(), setup.section, setup.s0, setup.T0, N;
                       eqs=[setup.x_eq], model_label="van-der-pol",
                       note="structural checks only; no closed form exists")
     record_solution!(d, "sol", sol)
+    d["accepted"] = (sol.status == SolveSuccess)
     if sol.status == SolveSuccess
         # cross-grid recheck: the finer map must nearly close at the found point
         fl = integrate_flow(vdp_model(), sol.x0, sol.T, 512)
@@ -467,14 +510,17 @@ function scenario_vdp_convergence(opts::CliOptions)
     d["setup_ok"] = setup.ok
     if !setup.ok
         d["status"] = "setup_failed"
+        d["accepted"] = false
         return d
     end
     s_warm, T_warm = setup.s0, setup.T0
     rows = Any[]
     Ts = Float64[]
+    all_solved = true
     for N in Ns
         sol = solve_cycle(vdp_model(), setup.section, s_warm, T_warm, N;
                           eqs=[setup.x_eq], model_label="vdp-conv")
+        all_solved &= (sol.status == SolveSuccess)
         if sol.status == SolveSuccess
             s_warm, T_warm = sol.s, sol.T
             push!(Ts, sol.T)
@@ -497,6 +543,9 @@ function scenario_vdp_convergence(opts::CliOptions)
               ["N", "T", "x0_1", "x0_2", "mult2_re", "mult2_im", "gap_to_unit",
                "dev_neutral", "status"], rows)
     d["status"] = "written"
+    # positive scenario: every grid must solve and enough periods must be
+    # available for the Richardson ratios
+    d["accepted"] = all_solved && (length(Ts) >= length(Ns) - 1)
     return d
 end
 
@@ -511,12 +560,14 @@ function scenario_vdp_inference_crossmodel(opts::CliOptions)
     d["setup_ok"] = setup.ok
     if !setup.ok
         d["status"] = "setup_failed"
+        d["accepted"] = false
         return d
     end
     sol = solve_cycle(vdp_model(), setup.section, setup.s0, setup.T0, N;
                       eqs=[setup.x_eq], model_label="vdp-ref")
     if sol.status != SolveSuccess
         d["status"] = "vdp_reference_failed: " * sol.message
+        d["accepted"] = false
         return d
     end
     mk_vdp = theta -> VanDerPol(theta[1])
@@ -561,6 +612,7 @@ function scenario_vdp_inference_crossmodel(opts::CliOptions)
                          eqs=[sl_setup2.x_eq], model_label="sl-warm-for-crossmodel")
     if ref_sl.status != SolveSuccess
         d["status"] = "sl_warm_failed"
+        d["accepted"] = false
         return d
     end
     sw, Tw = ref_sl.s, ref_sl.T
@@ -578,6 +630,14 @@ function scenario_vdp_inference_crossmodel(opts::CliOptions)
     d["crossmodel_3obs_residual"] = res3.residual_scaled
     d["crossmodel_3obs_mismatch"] = res3.mismatch
     d["status"] = "written"
+    # mixed positive/expected-negative scenario: the vdp self-inference and
+    # the underdetermined (radius, period) cross-model fit must recover; the
+    # overdetermined 3-observable cross-model fit must NOT be silently
+    # recovered and must be flagged as a model mismatch
+    d["accepted"] = (resv.status == :recovered) &&
+                    (resvn.status in (:recovered, :stalled)) && !resvn.mismatch &&
+                    (res2.status == :recovered) && !res2.mismatch &&
+                    (res3.status != :recovered) && res3.mismatch
     return d
 end
 
@@ -637,6 +697,14 @@ function scenario_spurious_roots(opts::CliOptions)
         end
     end
     d["status"] = "written"
+    # mixed positive/expected-negative: plain Newton must be seduced to the
+    # equilibrium and guard-rejected (SL: deterministically; vdp: honest
+    # failure statuses), deflated Newton must find the genuine SL cycle and
+    # must never land on the deflated equilibrium for vdp
+    d["accepted"] = (plain.status == GuardRejectedEquilibrium) &&
+                    (defl.status == SolveSuccess) &&
+                    (plainv.status in (GuardRejectedEquilibrium, NewtonNotConverged)) &&
+                    (deflv.status != GuardRejectedEquilibrium)
     return d
 end
 
@@ -673,14 +741,29 @@ function main()
             d = fn(opts)
         catch err
             d = Dict{String,Any}("status" => "error",
-                                 "error" => sprint(showerror, err))
+                                 "error" => sprint(showerror, err),
+                                 "accepted" => false)
             push!(crashed, name)
         end
         exec_times[name] = (time_ns() - t0) / 1e9
         d["exec_seconds"] = exec_times[name]
         results[name] = d
-        @printf("  %-28s %-10s %8.3fs\n", name, string(get(d, "status", "?")),
-                exec_times[name])
+        @printf("  %-28s %-10s %-8s %8.3fs\n", name,
+                string(get(d, "status", "?")),
+                get(d, "accepted", false) ? "accept" : "REJECT", exec_times[name])
+    end
+
+    # Scenario acceptance audit: every scenario declares, via d["accepted"],
+    # whether its outcome is within its expected set (positive scenarios must
+    # actually solve/recover; explicitly negative scenarios are accepted only
+    # when the expected honest failure or mismatch flag occurred). A scenario
+    # that silently misses its expected outcome fails the run, not only a
+    # crash does.
+    failed_acceptance = String[]
+    for name in sort(collect(keys(results)))
+        if get(results[name], "accepted", false) !== true
+            push!(failed_acceptance, name)
+        end
     end
 
     total_s = (time_ns() - t_main0) / 1e9
@@ -711,6 +794,12 @@ function main()
             "guard_ftol" => 1e-6,
             "note" => "discrete residual is driven to ~1e-12; accuracy vs the continuous problem is O(h^4), reported by the convergence studies",
         ),
+        "audit" => Dict{String,Any}(
+            "all_accepted" => (isempty(failed_acceptance) && isempty(crashed)),
+            "failed_acceptance" => failed_acceptance,
+            "crashed" => crashed,
+            "note" => "exit code is 1 on any scenario crash OR any scenario outcome outside its declared acceptance set; expected negative outcomes (guard rejections, honest non-convergence, model-mismatch flags) are accepted",
+        ),
         "scenarios" => results,
     )
     write_toml(joinpath(opts.out_dir, "summary.toml"), summary)
@@ -719,11 +808,14 @@ function main()
     println("  artifacts: ", opts.out_dir)
     println("  total: ", round(total_s; digits=3), "s (setup ",
             round(setup_s; digits=3), "s)")
+    println("  audit: ", isempty(failed_acceptance) ?
+            "all scenarios within acceptance set" :
+            "REJECTED scenarios: " * join(failed_acceptance, ", "))
     if !isempty(crashed)
         println("  CRASHED scenarios: ", join(crashed, ", "))
     end
     println()
-    if !isempty(crashed)
+    if !isempty(crashed) || !isempty(failed_acceptance)
         exit(1)
     end
     return nothing
