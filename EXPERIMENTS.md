@@ -198,6 +198,12 @@ Its instructions require component-wise FD plateaus, finer ds checks, explicit
 boundary terms, real injected failure paths, and an honest inconclusive/failure
 status when the derivative evidence does not support acceptance.
 
+Parent rerun `20261019T154106.937412Z` has now completed: **184/184 tests pass**
+(31.59 seconds process wall, 24.0 testset seconds); stdlib smoke exits 0
+(50.57 seconds wall). The Astra child's numerical slot was explicitly released
+on this completion notification. All three workers may use one process each.
+These passing probes leave the separately reviewed package-gradient gate unresolved.
+
 ## Known uncertainties / do not repeat as established facts
 
 - Paper and released code use different measure normalizations and target-distance
