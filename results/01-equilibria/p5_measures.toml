@@ -1,0 +1,28 @@
+ok = true
+
+[b6_spurious_family]
+model = "F = p + u + (K/3)u^3, det = 1 + K u^2 >= 1: no crossing exists"
+note = "all four measure forms approach 1 near u ~ K^{-1/2} where d(det)/ds is steep but det never crosses zero — Supp B (B.6) spurious maxima. The D.1 tanh fix does not suppress them in this family (measure values, not gradients, are compared)."
+
+    [b6_spurious_family.maxima]
+    "K=1.0e6_max_phi_code" = 0.9951808106821043
+    "K=1.0e6_max_phi_e1" = 0.9980980841478672
+    "K=1.0e6_max_phi_eq5" = 0.9980980841478672
+    "K=1.0e6_max_phi_tanh" = 0.9951808106821038
+    "K=10.0_max_phi_code" = 0.2677503653938096
+    "K=10.0_max_phi_e1" = 0.4052191648340713
+    "K=10.0_max_phi_eq5" = 0.4052191648333337
+    "K=10.0_max_phi_tanh" = 0.2677503653932096
+    "K=1000.0_max_phi_code" = 0.8688553412541367
+    "K=1000.0_max_phi_e1" = 0.9432479344542469
+    "K=1000.0_max_phi_eq5" = 0.9432479344546248
+    "K=1000.0_max_phi_tanh" = 0.86885534125476
+
+[fhn]
+hopf_u1_analytic = 0.9838699100999074
+max_phi_code_on_curve = 1.9649640642560064
+max_phi_e1_on_curve = 1.964965796151973
+min_det_on_curve = 0.007999999999999998
+note = "det(∂F/∂u) > 0 everywhere on the FHN equilibrium curve: the main-text Eq (5) determinant measure cannot reach 1 at the Hopf (phi_eq5 ≈ 0.45 there) while the eigen-real-part measures (E.1, released sinh form) hit their maxima exactly at the crossing. The main-text determinant formulation and the supplemental/released eigen measures are different detectors, not normalization variants."
+phi_eq5_at_hopf = 0.44802348146246956
+theta_a_b_tau = [0.7, 0.8, 25.0]

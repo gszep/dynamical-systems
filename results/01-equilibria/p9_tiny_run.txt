@@ -1,0 +1,32 @@
+Iteration 1	Loss = 2.1666923535714995
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=239]
+Parameters	[1.0, -1.0]
+Gradients	[-0.44441892652567083, -0.14812246124331505]
+Iteration 2	Loss = 2.1647606390282403
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=239]
+Parameters	[1.0044441892652567, -0.9985187753875668]
+Gradients	[-0.44876272464597017, -0.15027676943614007]
+Iteration 3	Loss = 2.1622975204138495
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=240]
+Parameters	[1.0089318165117165, -0.9970160076932054]
+Gradients	[-0.45368148774037675, -0.1529737669446693]
+Iteration 4	Loss = 2.160360580846908
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=240]
+Parameters	[1.0134686313891204, -0.9954862700237588]
+Gradients	[-0.45812702729633514, -0.15515455975522452]
+Iteration 5	Loss = 2.158221651485575
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=241]
+Parameters	[1.0180499016620836, -0.9939347244262066]
+Gradients	[-0.4627811446824506, -0.15754873985275133]
+Iteration 6	Loss = 2.155511833578564
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=241]
+Parameters	[1.0226777131089082, -0.992359237027679]
+Gradients	[-0.4680488692414862, -0.16052954947383405]
+Iteration 7	Loss = 2.152881463554462
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=242]
+Parameters	[1.027358201801323, -0.9907539415329407]
+Gradients	[-0.4732740109776613, -0.163444569304263]
+Iteration 8	Loss = 2.1505850557883797
+Vector{Branch}[dim=1 bifurcations=2 branches=1, states=242]
+Parameters	[1.0320909419110995, -0.9891194958398981]
+Gradients	[-0.4782089893593149, -0.16603631787378959]

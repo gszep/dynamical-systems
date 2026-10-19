@@ -1,0 +1,13 @@
+E_code_caseA = 1.25
+E_paper_caseA = 1.0
+E_paper_squared_caseA = 1.0
+grad_E_code_at_1p5 = -1.0
+grad_E_paper_at_1p5 = 0.0
+minimiser_structure = "1 prediction, 2 targets: paper E is flat-minimal on the whole interval between targets; code E has the unique midpoint minimiser"
+multi_target_weighting = "E_code = mean_t gm_t^2 != (mean_t gm_t)^2 = E_paper^2: far targets are upweighted by the square"
+ok = true
+paper_gradient_zero_in_flat_region = true
+per_target_identity = "code per-target gm2 == (paper per-target gm)^2 exactly"
+scale_note = "rescaling p by 10 scales E_paper by 10 but E_code by 100, changing the relative weight of the error term against the scale-free log-measure term"
+scale_x10_E_code = 125.0
+scale_x10_E_paper = 10.0

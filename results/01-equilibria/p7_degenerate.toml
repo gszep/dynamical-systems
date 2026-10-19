@@ -1,0 +1,8 @@
+cusp_note = "SN cusp at theta1=0: augmented Jacobian [[0,1],[0,0]] singular; Eq (10) does not exist there. cond(J) grows ~1/sqrt(theta1) approaching the cusp and the fold velocity vanishes like sqrt(theta1). For theta1<0 there are no folds at all: |P| jumps 0->2 across theta1=0 (the paper's piecewise-smoothness boundary); central FD across the jump is impossible."
+negative_side_solutions_found = 0
+ok = true
+perfect_pitchfork_condJ = +inf
+perfect_pitchfork_note = "at the perfect pitchfork (theta1=0) the rectangular Jacobian dF/dz is the zero matrix: tangent field undefined (rank 0) and the augmented Jacobian [[0,0],[0,1]] singular, although the determinant crossing restricted to the u=0 branch is non-degenerate — the augmented (branch-agnostic) formulation cannot see branch-restricted non-degeneracy. PF fold velocity dp*/dtheta1 = -1/u* ~ |theta1|^{-1/3} diverges as theta1→0."
+perfect_pitchfork_solutions_found = 114
+perfect_pitchfork_velocity = [nan, nan]
+pf_velocity_diverges = true

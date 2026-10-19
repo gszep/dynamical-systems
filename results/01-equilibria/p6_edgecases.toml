@@ -1,0 +1,16 @@
+code_gradient_vanishes_linearly_2vd = true
+empty_predictions_E_code_blind_to_targets = true
+empty_predictions_E_code_equals_1 = 1.0
+empty_predictions_E_paper_is_NaN = true
+empty_predictions_grad_E_code_zero = true
+empty_predictions_note = "released code errors() with empty predictions returns 1 (empty-product init) for ANY targets — the error term is blind to target location when no prediction exists; the paper Eq (4) is undefined there (NaN recorded). The code gradient of the error term is exactly zero: only the measure term can move theta until a first bifurcation appears."
+empty_targets_E_code_zero = 0.0
+exact_match_E_code_zero = 0.0
+exact_match_E_paper_zero = 0.0
+exact_match_grad_E_code_isNaN = true
+exact_match_grad_E_paper_isNaN = true
+exact_match_note = "at an exact match both objectives have value 0 and both gradient formulas produce NaN (0*Inf structure: gm=0 times velocity/(p-t)=Inf), the documented expected singularity"
+fold_velocity_norm = 1.1882916464559687
+near_match_note = "approaching an exact match the paper |d| gradient tends to |v| (persistent crossing force), the code d^2 gradient vanishes like 2|v|d"
+ok = true
+paper_gradient_tends_to_abs_v = true

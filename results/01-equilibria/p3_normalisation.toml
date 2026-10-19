@@ -1,0 +1,23 @@
+note = "normalisation axis isolated: with the SAME per-point measure the released code's branch sum equals the paper's Ψ times total arclength L (Φ = Ψ·L). Since log enters the loss multiplied by (|P|-|D|), dropping the normalisation can flip the sign of the count-term contribution whenever L ≶ 1/Ψ."
+ok = true
+phi_equals_psi_times_L_relerr = 1.6943046736924663e-6
+psi_refinement_absdiff = 5.551115123125783e-16
+total_arclength_sn_window = 11.161360119177026
+window = [-2.0, 2.0]
+
+[P_gt_D]
+code_term = 0.3025566420384731
+paper_normalisation_code_phi_term = -2.109906778938589
+paper_term = -1.0599063214903608
+sign_flip_vs_paper = true
+
+[P_lt_D]
+code_term = -0.010781703644433784
+paper_normalisation_code_phi_term = 1.8180228414160997
+paper_term = 0.9567932582550558
+sign_flip_vs_paper = true
+
+[empty_targets]
+code_loss = 0.6051132840769462
+paper_loss = -2.1198126429807216
+sign_flip_vs_paper = true
