@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/Users/gszep/Documents/repos/dynamical-systems-research-20261019/.tools/julia-1.10.11/bin/julia",
+    "--startup-file=no",
+    "-L",
+    "/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/cache_only.jl",
+    "--project=/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/pkgenv",
+    "gradient_checks.jl",
+    "--mode",
+    "assess"
+  ],
+  "raw_exit": 1,
+  "expected_exit": 1,
+  "expected_message": "required derivative discrimination is INCONCLUSIVE or FAILED",
+  "expectation_matched": true,
+  "timed_out": false,
+  "queue_seconds": 0.0,
+  "queue_note": "No launcher queue; earlier human resource hold not timed here",
+  "setup_seconds": 0.00046240026131272316,
+  "execution_seconds": 15.98185181291774,
+  "total_seconds": 15.982314213179052,
+  "no_package_setup": true
+}

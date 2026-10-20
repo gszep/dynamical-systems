@@ -1,0 +1,169 @@
+boundary_identity_residual = [1.1379951107499301e-11, 2.9127168715507095e-11]
+boundary_note = "Tail-difference derivatives are not endpoint omission bounds. Fixed-u Leibniz boundary and normal-deformation relative flux are explicitly computed separately."
+code_sha256 = "f0bd68e763d214fc16ef8a9f55a8aca000630e08550a273556e8203ed0ddb99e"
+execution_seconds_since_imports = 20.039513111114502
+explicit_fixed_u_boundary = [1.7347095965379484e-7, 4.015152261546865e-7]
+fixed_endpoints_fd = [0.01490994461783579, 0.5067568114036636]
+julia = "1.10.11"
+moving_endpoints_fd = [0.014910118100175396, 0.5067572129480169]
+normal_deformation_boundary_flux = [4.775049082869461e-9, 1.1052310520645224e-8]
+point_errors = [6.505213034913027e-19, 0.0, 2.220446049250313e-16, 0.0, 1.1102230246251565e-16, 0.0]
+psi_error = 7.633575738254326e-10
+psi_fd = [-0.07474957769953994, -0.020488555607656167]
+psi_gradient = [-0.0747495778477238, -0.020488556356492816]
+radius4_vs5_gradient_delta = [-6.661338147750939e-12, -5.551115123125783e-12]
+status = "measured"
+theta = [1.0, -1.0]
+utc = "2026-10-19T15:47:49.072"
+window = [-2.0, 2.0]
+
+[[rows]]
+gradient = [0.01491103836952501, 0.506781526151201]
+h = 0.01
+n = 512
+truncated = false
+[[rows]]
+gradient = [0.014911045448107174, 0.5067815195076042]
+h = 0.01
+n = 512
+truncated = true
+[[rows]]
+gradient = [0.014910120227140666, 0.5067574602607428]
+h = 0.001
+n = 512
+truncated = false
+[[rows]]
+gradient = [0.014910127304701426, 0.5067574536185004]
+h = 0.001
+n = 512
+truncated = true
+[[rows]]
+gradient = [0.014910111044708074, 0.5067572196171266]
+h = 0.0001
+n = 512
+truncated = false
+[[rows]]
+gradient = [0.014910118124600302, 0.506757212973552]
+h = 0.0001
+n = 512
+truncated = true
+[[rows]]
+gradient = [0.014910110979204914, 0.5067572172001711]
+h = 1.0e-5
+n = 512
+truncated = false
+[[rows]]
+gradient = [0.014910118062427811, 0.5067572106054463]
+h = 1.0e-5
+n = 512
+truncated = true
+[[rows]]
+gradient = [0.014910110812671462, 0.506757216856002]
+h = 1.0e-6
+n = 512
+truncated = false
+[[rows]]
+gradient = [0.014910118140143425, 0.506757210638753]
+h = 1.0e-6
+n = 512
+truncated = true
+[[rows]]
+gradient = [0.014911037322318244, 0.5067815276555643]
+h = 0.01
+n = 2048
+truncated = false
+[[rows]]
+gradient = [0.014911045419341296, 0.5067815194952474]
+h = 0.01
+n = 2048
+truncated = true
+[[rows]]
+gradient = [0.014910119180311376, 0.5067574617649839]
+h = 0.001
+n = 2048
+truncated = false
+[[rows]]
+gradient = [0.014910127277167895, 0.5067574536052888]
+h = 0.001
+n = 2048
+truncated = true
+[[rows]]
+gradient = [0.014910110002208654, 0.5067572211259197]
+h = 0.0001
+n = 2048
+truncated = false
+[[rows]]
+gradient = [0.01491011808352205, 0.5067572129691111]
+h = 0.0001
+n = 2048
+truncated = true
+[[rows]]
+gradient = [0.01491010989118635, 0.5067572187100744]
+h = 1.0e-5
+n = 2048
+truncated = false
+[[rows]]
+gradient = [0.014910117918098818, 0.5067572106276508]
+h = 1.0e-5
+n = 2048
+truncated = true
+[[rows]]
+gradient = [0.014910109702448437, 0.5067572192984926]
+h = 1.0e-6
+n = 2048
+truncated = false
+[[rows]]
+gradient = [0.014910118584232634, 0.5067572104167084]
+h = 1.0e-6
+n = 2048
+truncated = true
+[[rows]]
+gradient = [0.014911037318243725, 0.5067815276613263]
+h = 0.01
+n = 8192
+truncated = false
+[[rows]]
+gradient = [0.014911045419307989, 0.5067815194953029]
+h = 0.01
+n = 8192
+truncated = true
+[[rows]]
+gradient = [0.014910119174871284, 0.5067574617697579]
+h = 0.001
+n = 8192
+truncated = false
+[[rows]]
+gradient = [0.014910127271727802, 0.5067574536076203]
+h = 0.001
+n = 8192
+truncated = true
+[[rows]]
+gradient = [0.014910109996657539, 0.5067572211303606]
+h = 0.0001
+n = 8192
+truncated = false
+[[rows]]
+gradient = [0.014910118100175396, 0.5067572129480169]
+h = 0.0001
+n = 8192
+truncated = true
+[[rows]]
+gradient = [0.014910110035515343, 0.5067572187655855]
+h = 1.0e-5
+n = 8192
+truncated = false
+[[rows]]
+gradient = [0.0149101179847122, 0.5067572106276508]
+h = 1.0e-5
+n = 8192
+truncated = true
+[[rows]]
+gradient = [0.01491010936938153, 0.5067572187433811]
+h = 1.0e-6
+n = 8192
+truncated = false
+[[rows]]
+gradient = [0.0149101170299204, 0.5067572126371545]
+h = 1.0e-6
+n = 8192
+truncated = true

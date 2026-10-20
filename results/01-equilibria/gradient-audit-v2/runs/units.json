@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/Users/gszep/Documents/repos/dynamical-systems-research-20261019/.tools/julia-1.10.11/bin/julia",
+    "--startup-file=no",
+    "--pkgimages=existing",
+    "--compiled-modules=existing",
+    "--project=/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/pkgenv",
+    "audit_units.jl"
+  ],
+  "raw_exit": 1,
+  "expected_exit": 0,
+  "expected_message": "",
+  "expectation_matched": false,
+  "timed_out": false,
+  "queue_seconds": 0.0,
+  "queue_note": "No launcher queue; earlier human resource hold not timed here",
+  "setup_seconds": 0.0006652059964835644,
+  "execution_seconds": 0.04033847572281957,
+  "total_seconds": 0.04100368171930313,
+  "no_package_setup": true
+}

@@ -1,0 +1,98 @@
+code_sha256 = "14fef07369ff8441e52b78f79ec0f9c084bde08ecfc54da8f5c7b44e02d1c2d9"
+criterion = "Component accuracy 0.1% + 1e-8 absolute; last three h and ds values must plateau within that fixed budget. Reference and roundoff-proxy variations <=10% of budget. These are empirical resolution checks, not certified bounds; no observed mismatch inflates tolerances."
+diagnosis_limit = "Counts/endpoints/weights are recorded for every perturbation. Changes indicate re-discretization; they alone do not prove nondifferentiability or identify a unique mechanism."
+execution_seconds_since_imports = 2.7918789386749268
+julia = "1.10.11"
+raw_jobs_code_sha256 = "f0bd68e763d214fc16ef8a9f55a8aca000630e08550a273556e8203ed0ddb99e"
+required_checks_passed = false
+status = "INCONCLUSIVE_OR_FAILED"
+utc = "2026-10-19T15:55:50.448"
+
+[[components]]
+component = 1
+continuum_gate = "INCONCLUSIVE"
+continuum_reference = 0.014910109996657539
+discrete_gate = "INCONCLUSIVE"
+fd_resolution_plateau = false
+gradient_resolution_plateau = false
+reference_resolved = true
+released_gradient_by_ds = [0.013820122247499357, 0.016906029994408017, 0.013934769242503753, 0.014177813462568228]
+returned_sum_fd_by_ds = [0.02723971703755268, 0.02154433986767401, -0.0001679391070652514, 0.013482162941613751]
+tolerance = 1.4920109996657539e-5
+
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = false
+    ds = 0.02
+    fd_plateau = false
+    fd_values = [0.01634429621099054, 0.01997698207401033, 0.027239822973923467, 0.02723971758156196, 0.02723971703755268]
+    gradient_minus_returned_sum_fd = -0.013419594790053323
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "INCONCLUSIVE"
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = false
+    ds = 0.01
+    fd_plateau = false
+    fd_values = [0.01514533032516141, 0.021554081559238547, 0.021544437154297214, 0.02154434084467027, 0.02154433986767401]
+    gradient_minus_returned_sum_fd = -0.004638309873265994
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "INCONCLUSIVE"
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = false
+    ds = 0.005
+    fd_plateau = false
+    fd_values = [0.014687939938606842, 0.0017422423360669015, -0.00016784849732331963, -0.0001679373418106422, -0.0001679391070652514]
+    gradient_minus_returned_sum_fd = 0.014102708349569004
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "INCONCLUSIVE"
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = false
+    ds = 0.0025
+    fd_plateau = false
+    fd_values = [0.01503142908585442, 0.01548653811889178, 0.013482254372920721, 0.013482163152556124, 0.013482162941613751]
+    gradient_minus_returned_sum_fd = 0.0006956505209544765
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "INCONCLUSIVE"
+[[components]]
+component = 2
+continuum_gate = "INCONCLUSIVE"
+continuum_reference = 0.5067572211303606
+discrete_gate = "INCONCLUSIVE"
+fd_resolution_plateau = false
+gradient_resolution_plateau = false
+reference_resolved = true
+released_gradient_by_ds = [0.5075189689047737, 0.5094126259175705, 0.5059285805818422, 0.506067257145288]
+returned_sum_fd_by_ds = [0.5172464959679601, 0.5115279212430934, 0.4976552966384773, 0.5059429865061915]
+tolerance = 0.0005067672211303606
+
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = true
+    ds = 0.02
+    fd_plateau = true
+    fd_values = [0.5058504892132665, 0.5172491285190262, 0.5172465227332168, 0.5172464966118895, 0.5172464959679601]
+    gradient_minus_returned_sum_fd = -0.00972752706318647
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "FAILED"
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = true
+    ds = 0.01
+    fd_plateau = true
+    fd_values = [0.5030655926889893, 0.5115302762404017, 0.5115279460232713, 0.5115279227529967, 0.5115279212430934]
+    gradient_minus_returned_sum_fd = -0.0021152953255229034
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "FAILED"
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = true
+    ds = 0.005
+    fd_plateau = true
+    fd_values = [0.5068411988523036, 0.49765746040675296, 0.49765531784706774, 0.4976552964386371, 0.4976552966384773]
+    gradient_minus_returned_sum_fd = 0.008273283943364906
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "FAILED"
+    [[components.per_ds]]
+    arithmetic_proxy_resolved = false
+    ds = 0.0025
+    fd_plateau = false
+    fd_values = [0.5068050492251785, 0.5059453021785121, 0.505943009770915, 0.5059429880049926, 0.5059429865061915]
+    gradient_minus_returned_sum_fd = 0.00012427063909647984
+    h_values = [0.01, 0.001, 0.0001, 1.0e-5, 1.0e-6]
+    same_discrete_object_gate = "INCONCLUSIVE"

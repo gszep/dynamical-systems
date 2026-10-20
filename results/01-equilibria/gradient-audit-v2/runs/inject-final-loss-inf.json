@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/Users/gszep/Documents/repos/dynamical-systems-research-20261019/.tools/julia-1.10.11/bin/julia",
+    "--startup-file=no",
+    "-L",
+    "/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/cache_only.jl",
+    "--project=/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/pkgenv",
+    "package_checks.jl",
+    "--inject",
+    "final-loss-inf",
+    "--out-dir",
+    "../../results/01-equilibria/gradient-audit-v2/injections/final-loss-inf"
+  ],
+  "raw_exit": 1,
+  "expected_exit": 1,
+  "expected_message": "tiny train! final loss: non-finite required output",
+  "expectation_matched": true,
+  "timed_out": false,
+  "queue_seconds": 0.0,
+  "queue_note": "No launcher queue; earlier human resource hold not timed here",
+  "setup_seconds": 0.001138877123594284,
+  "execution_seconds": 54.96389252273366,
+  "total_seconds": 54.96503139985725,
+  "no_package_setup": true
+}

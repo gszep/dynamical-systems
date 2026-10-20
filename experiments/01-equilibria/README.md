@@ -159,22 +159,38 @@ These differ in *detector* and in *normalisation*, not merely by a scale:
   path never exercises it) runs and returns finite values
   G = (0.01382, 0.50752) at θ=(1,−1). Against central FD of the continuum
   functional it differentiates (M_full = ∫ erf-window·φ_code·ds, exact erf,
-  kink-split Simpson): FD = (0.01491, 0.50676) — **the released adjoint is
-  the correct continuum derivative of its own functional** (gate A pass:
-  |G−FD| = 0.0013 abs; 0.15% relative on the dominant component, 7.3% on the
-  small one). The remaining error is branch-sum quadrature: sweeping the
-  continuation step ds = 0.04 → 0.02 → 0.01 moves G's small component
-  −0.0026 → 0.0138 → 0.0169 toward the continuum value — an O(ds) error
-  consistent with the kinked adjoint integrand at the folds. FD of the
-  **actually returned discrete measure** (fresh deflationContinuation per
-  θ±h) tracks the window-truncated continuum derivative within 0.011
-  (gate B pass) — the discretisation derivative and the continuum derivative
-  agree at these regular settings within the swept tolerances. The
-  branch-truncation/endpoint-omission effect (erf is not exactly zero at the
-  branch cut) is measured negligible here: tail value 3.0e-9, tail gradient
-  ≤ 2e-7. The overdetermined adjoint solve goes through
-  `BifurcationKit.DefaultLS` (`A\b` least squares), consistent with the
-  Moore–Penrose derivation of Supp C.
+  kink-split Simpson): FD = (0.01491, 0.50676). **Derivative agreement is
+  INCONCLUSIVE; the previous correctness and O(ds) claims are retracted.**
+  The small-component error increases from 0.00109 at ds=0.02 to 0.00200
+  at ds=0.01. These data establish neither a convergence order nor its cause.
+  FD of the **actually returned adaptive finite sum** also needs its own
+  componentwise plateau: at ds=0.02, its first component changes from
+  0.01998 (h=0.001) to 0.02724 (h=0.0001). The old absolute gate floors
+  0.05/0.10 exceeded the entire 0.01491 reference component and could admit
+  a wrong sign. Historical raw artifacts are preserved, but their `pass`
+  flags are superseded by this audit, not evidence of validated derivatives.
+  Likewise, full-minus-truncated FD combines tail-integral and endpoint
+  contributions; its small value is **not an endpoint-omission bound**.
+  Explicit endpoint terms and separate convergence tests are required.
+  **Audit v2 (results/01-equilibria/gradient-audit-v2, run 2026-10-20/21)**:
+  fixed component tolerance 0.1%·|ref| + 1e-8 (declared, not fitted);
+  h ∈ {1e-2..1e-6}, ds ∈ {0.02, 0.01, 0.005, 0.0025}. Continuum reference
+  resolved (h, n, radius variations ≤10% of budget): (0.014910, 0.506757).
+  Released ∇measure by ds — component 1: 0.01382, 0.01691, 0.01393, 0.01418;
+  component 2: 0.50752, 0.50941, 0.50593, 0.50607 — **no resolution plateau;
+  continuum gate INCONCLUSIVE for both components.** FD of the returned
+  adaptive finite sum has h-plateaux per ds for component 1 at
+  0.02724, 0.02154, −0.000168, 0.01348 (sign change at ds=0.005) and is
+  not ds-stable; component 2 gives the same-discrete-object gate **FAILED**
+  at ds=0.02/0.01/0.005 (|G−FD| 0.0097/0.0021/0.0083 > 5.1e-4) and
+  INCONCLUSIVE at 0.0025. State counts and bifurcation flags are identical at
+  ± perturbations for h ≤ 1e-4, so discrete-point count jumps do not explain
+  the instability; its mechanism is unidentified and no nondifferentiability
+  is claimed. Explicit fixed-u Leibniz endpoint terms (1.7e-7, 4.0e-7) and
+  normal-deformation boundary flux (4.8e-9, 1.1e-8) are computed separately
+  from the tail (identity residual ≤ 3e-11). The assessment exits nonzero.
+  Failure paths verified by real call-site injection (exit 1): training
+  exception, final-loss Inf, FD exception, FD NaN.
   *Package robustness observation*: at θ=(1.2,−0.9) — regular, folds well
   inside the window — the package's `findRoots` seeded Newton diverges from
   u≈0.02 at p=−2 and its `@assert` fires ("No roots found"); θ=(1,−1) works.
@@ -252,14 +268,10 @@ code-consistent reading.
 * The package tiny run covers N=1 and 8 iterations only; paper-scale runs
   (toggle switch N=2/M=5 with 800 restarts, E. coli N=4/M=21) were NOT
   attempted (out of overnight scope; each is hours of continuation).
-* The released-∇measure validation (p10) covers the N=1 SN model at one
-  regular θ with window [-2,2]; the O(ds) branch-sum error was quantified by
-  sweep but not extrapolated to ds→0, and the 7.3% relative residual on the
-  small component is unexplained beyond that quadrature error. **Next
-  discriminating check**: repeat gate A at ds = 0.005/0.0025 to confirm the
-  O(ds) convergence of the released gradient toward the continuum derivative
-  (and test a second θ and the two-state toggle model, where the overdetermined
-  adjoint solve has N=2).
+* The released-∇measure derivative gates remain INCONCLUSIVE/FAILED after
+  audit v2 (above). Open question: why the returned finite sum's derivative is
+  ds-unstable at fixed state count. Re-discretisation sensitivity is a
+  candidate, but no cause is established.
 * `findRoots` seed fragility (assert fires at regular θ where the seeded
   Newton diverges, e.g. (1.2,−0.9)) is recorded but not characterised.
 * My probes replace deflated continuation with warm-started augmented Newton
@@ -281,7 +293,7 @@ $JULIA tests.jl                          # 184 expected-value tests, exit 0
 $JULIA main.jl                            # probes p1–p8, p10 (probe side)
                                          # -> results/01-equilibria/
 JULIA_NUM_PRECOMPILE_TASKS=2 $JULIA --project=pkgenv package_checks.jl   # p0/p9
-JULIA_NUM_PRECOMPILE_TASKS=2 $JULIA --project=pkgenv gradient_checks.jl  # p10 (package side)
+JULIA_NUM_PRECOMPILE_TASKS=2 python3 run_bounded.py --julia $JULIA --record R.json -- gradient_checks.jl --mode {reference|sweep --ds D|assess}  # audit v2; assess exits 1 (INCONCLUSIVE/FAILED)
 # all three entry points accept --out-dir DIR so reruns do not overwrite the
 # committed artifacts; package_checks.jl also accepts --inject-failure, which
 # must exit 1 (regression proof of the failure-propagation path).

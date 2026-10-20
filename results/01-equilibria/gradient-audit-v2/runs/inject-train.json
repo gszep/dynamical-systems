@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/Users/gszep/Documents/repos/dynamical-systems-research-20261019/.tools/julia-1.10.11/bin/julia",
+    "--startup-file=no",
+    "-L",
+    "/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/cache_only.jl",
+    "--project=/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/pkgenv",
+    "package_checks.jl",
+    "--inject",
+    "train-exception",
+    "--out-dir",
+    "../../results/01-equilibria/gradient-audit-v2/injections/train"
+  ],
+  "raw_exit": 1,
+  "expected_exit": 1,
+  "expected_message": "tiny train! failed (required run): injected train exception",
+  "expectation_matched": true,
+  "timed_out": false,
+  "queue_seconds": 0.0,
+  "queue_note": "No launcher queue; earlier human resource hold not timed here",
+  "setup_seconds": 0.0003457400016486645,
+  "execution_seconds": 42.06355852633715,
+  "total_seconds": 42.063904266338795,
+  "no_package_setup": true
+}

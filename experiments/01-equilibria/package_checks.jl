@@ -30,6 +30,8 @@ const BI = BifurcationInference
 
 include(joinpath(@__DIR__, "src", "EquilibriaProbes.jl"))
 using .EquilibriaProbes
+include(joinpath(@__DIR__, "src", "AuditChecks.jl"))
+using .AuditChecks
 
 # --out-dir DIR: write artifacts to DIR (default: committed results directory)
 function parse_outdir(default)
@@ -40,6 +42,7 @@ function parse_outdir(default)
 end
 const RESULTS = mkpath(parse_outdir(joinpath(@__DIR__, "..", "..", "results", "01-equilibria")))
 const INJECT_FAILURE = any(a -> a == "--inject-failure", ARGS)
+const INJECTION = INJECT_FAILURE ? "train-exception" : option(ARGS, "--inject", "none")
 
 "SN folds via probe augmented Newton from analytic warm starts."
 function sn_folds_probes(θ)
@@ -171,6 +174,8 @@ hyper = getParameters(X)
 steady_states = deflationContinuation(F_sn, X.roots, parameters, hyper)
 θv = Vector(θ₀)
 L_pkg, G_pkg = ∇loss(F_sn, steady_states, θv, X)
+finite!(L_pkg, "pipeline loss")
+finite!(G_pkg, "pipeline gradient")
 # predictions extracted exactly as the code does
 preds = unique([s.z for branch ∈ steady_states for s ∈ branch if s.bif];
                atol=2*step(X.parameter))
@@ -220,15 +225,20 @@ global traj = nothing
 oldout = stdout
 rd, wr = redirect_stdout()
 try
-    global traj = train!(F_sn, (θ=copy(θ₀), p=minimum(X.parameter)), X;
-                         iter=8, optimiser=Descent(0.01), convergence=0.02)
+    global traj = required_call(() -> train!(F_sn,
+        (θ=copy(θ₀), p=minimum(X.parameter)), X;
+        iter=8, optimiser=Descent(0.01), convergence=0.02),
+        "train"; injection=INJECTION)
+    isempty(traj) && error("training returned an empty trajectory")
+    foreach(t -> finite!(t, "training trajectory"), traj)
     tiny["status"] = "completed"
 catch e
     tiny["status"] = "failed"
     tiny["error"] = sprint(showerror, e)
+finally
+    redirect_stdout(oldout)
+    close(wr)
 end
-redirect_stdout(oldout)
-close(wr)
 tiny["stdout"] = read(rd, String)
 tiny["seconds"] = round(time() - t_tiny; digits=3)
 if traj !== nothing
@@ -237,9 +247,10 @@ if traj !== nothing
     # silently-recorded values (they invalidate a required output)
     try
         ss = deflationContinuation(F_sn, X.roots, (θ=traj[end], p=minimum(X.parameter)), hyper)
-        L_last = loss(F_sn, ss, collect(traj[end]), X)
+        L_last = required_call(() -> loss(F_sn, ss, collect(traj[end]), X),
+            "final-loss"; injection=INJECTION)
         tiny["final_loss"] = L_last
-        isnan(L_last) && push!(failures, "tiny train! final loss is NaN (invalid required output)")
+        finite!(L_last, "tiny train! final loss")
     catch e
         tiny["final_loss"] = "exception: $(sprint(showerror, e))"
         push!(failures, "tiny train! final loss evaluation threw: $(sprint(showerror, e))")
@@ -256,10 +267,18 @@ m = match(r"Iteration 1\tLoss = ([-\d.eENaI+]+)", tiny["stdout"] isa AbstractStr
 push!(out, "tiny_train_first_loss" => (m === nothing ? "not found" : m[1]))
 
 # ================= report =================
-# --inject-failure: controllable regression proving the failure path exits
-# nonzero (run: package_checks.jl --inject-failure; expect exit code 1)
-INJECT_FAILURE && push!(failures,
-    "INJECTED FAILURE (--inject-failure self-test): verifies exit(1) propagation")
+# --inject-failure now throws at the training call site; --inject also
+# supports final-loss-exception/nan/inf. No post-hoc failure-list injection.
+for key in ("velocity_pkg", "velocity_err_pkg_vs_analytic", "tangent_dot_abs",
+            "measure_worst_absdiff", "errors_pkg", "errors_absdiff",
+            "pipeline_predictions_pkg", "pipeline_grad_absdiff")
+    haskey(out, key) || continue
+    try
+        finite!(out[key], key)
+    catch e
+        push!(failures, sprint(showerror, e))
+    end
+end
 out["ok"] = isempty(failures)
 out["failures"] = failures
 out["package_version"] = string(pkgversion(BifurcationInference))
