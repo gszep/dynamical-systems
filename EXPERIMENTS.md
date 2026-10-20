@@ -1,5 +1,36 @@
 # Experiment checkpoint
 
+## Latest recovery status (2026-10-20 23:57 JST)
+
+The user's **Continue** authorizes completing the existing experiments. The
+scheduled overnight window expired; its heartbeat `17a3bc89` has been deleted.
+Queued heartbeat messages are not evidence of work performed during the gap.
+No detached Julia/experiment-runner processes remained at recovery.
+
+- **Equilibria:** Astra hit a usage limit, leaving uncommitted audit source and
+  already-computed sweeps in `../dynamical-systems-exp01`. Those files are preserved.
+  The SAME child `ses_eab758964ffeJCzR58tBi155La` now resumes on
+  `anthropic/claude-opus-5-5` to assess the existing evidence, validate remaining
+  failure paths and commit an honest pass/fail/inconclusive result. It must not
+  repeat setup or discard completed sweeps.
+- **Cycles:** builder commit `39f0f12` integrated as `684e9b3`; parent rerun
+  `20261020T145811.880247Z` confirms **223/223 tests pass**, smoke exit 0 with ten
+  accepted scenarios (37.74s tests + 31.61s smoke process wall). The numerical slot
+  is free. The discrete rotational-symmetry
+  neutral multiplier is not an RK4 convergence observable; the new tests measure
+  period/radius/radial-multiplier errors and flow-invariance residual instead.
+- **Patterns:** parent independently confirmed 208/208 tests and smoke at
+  `86acc61` (30.40s + 18.41s process wall). Limited 1D branch evidence is accepted
+  by review, but the existing Lunaroute builder is correcting unsupported N256
+  roundoff-floor claims, a diagnostic tolerance applied too broadly, smoke
+  acceptance when discoveries are missing, and partial-time labeling.
+- Numerical allocation: one process each for equilibrium, PDE and parent cycle
+  validation, one Julia/BLAS/OpenMP thread each. No remote access or installs.
+- Next: collect these existing tasks, independently rerun final changed suites,
+  summarize numerical evidence and limits, update draft PR #1. No merge authority
+  is implied. Earlier chronological checkpoints below are superseded where this
+  section explicitly differs.
+
 ## Authority and objective
 
 On 2026-10-19 the user authorized experiments 1–3 and autonomous overnight work.
