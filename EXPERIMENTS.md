@@ -1,5 +1,33 @@
 # Experiment checkpoint
 
+## Final experiment-round status (2026-10-21)
+
+All linked builder and report tasks have returned; no numerical job or overnight
+heartbeat remains active. This round is complete **as experiments**, not as a
+successful end-to-end inference extension. Draft PR #1 remains unmerged.
+
+| Experiment | Independent evidence | Scientific status |
+|---|---|---|
+| Equilibria | 184 probe tests; 21 audit-unit tests; assessment raw exit 1 | Tiny upstream package run reproduced. Released measure-gradient gate remains FAILED/INCONCLUSIVE; do not call it validated. |
+| Cycles | 223 tests; 10 accepted smoke scenarios | Accepted Stuart-Landau/Van der Pol baseline, not general cycle inference. |
+| Patterns | 224 tests; explicit smoke gates pass | Accepted restricted 1D stationary-branch baseline; no localized-state discovery, full atlas, or PDE inference. |
+
+Receipts: `results/validation/accepted-cycles.toml`,
+`accepted-patterns.toml`, `equilibrium-audit-v2.toml` (same directory).
+Synthesis: `reports/Experiment results.md`. Historical failed runs remain retained.
+
+Final PDE source `635b0e8` passed tests and smoke; the console-only timing-label
+correction `50c0ffa` passed a further smoke run. Numerical libraries/tests were
+unchanged by that print-label edit. Timings are supervisor wall measurements,
+not comparative benchmarks; no CI, GPU, browser, Lean or language-rank evidence
+is claimed. `artemis` was not accessed.
+
+The remaining scientific questions are: isolate returned-sum gradient sensitivity
+to moving continuation meshes; cross-check cycles against an independent library;
+seek localized PDE branches and investigate dealiasing/N256 stagnation. These are
+next discriminating experiments, not pending hidden jobs. No user-only approval
+blocker, deployment or merge action is assumed.
+
 ## Latest recovery status (2026-10-20 23:57 JST)
 
 The user's **Continue** authorizes completing the existing experiments. The
