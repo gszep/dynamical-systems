@@ -7,8 +7,8 @@
 #
 # Single process, one Julia thread; the script pins BLAS to one thread.
 # Writes artifacts to <repo>/results/03-patterns/. Budget: dense grids
-# N <= 128, all dense linear algebra is tiny; expected wall time well under
-# five minutes including module load and JIT compilation.
+# Main mesh study N <= 128; an additional N=256 phase-defect diagnostic is
+# explicitly residual-qualified if it stalls. The supervisor bounds process time.
 
 const PKG_DIR = dirname(@__DIR__)
 const REPO_ROOT = dirname(dirname(PKG_DIR))
@@ -32,7 +32,7 @@ summary = run_smoke(CFG; results_dir=RESULTS_DIR, setup_seconds=SETUP_SECONDS)
 
 println("experiment 03 smoke run complete")
 println("results directory: ", RESULTS_DIR)
-println("total wall seconds: ", summary["timing"]["total_seconds"])
+println("partial instrumented seconds (not process wall): ", summary["timing"]["total_seconds"])
 println("setup / discovery / continuation / mesh / io seconds: ",
         summary["timing"]["setup_seconds"], " / ",
         summary["timing"]["discovery_seconds"], " / ",
