@@ -1,0 +1,34 @@
+run_id = "20261020T145811.880247Z"
+source_commit = "684e9b352ba44772eff90d768342166145c93ba6"
+source_clean_at_start = true
+runtime = "Julia 1.10.11 macOS x86_64"
+command = "python3 scripts/run_experiments.py --stages 02-cycles --jobs 1 --timeout 300"
+validation = "independent parent rerun; local, not CI"
+scope = "Stuart-Landau and Van der Pol cycle solve/inference baselines, not general cycle or PDE inference"
+
+[timing]
+queue_seconds = 0.0034621250815689564
+supervisor_setup_seconds = 0.1032557780854404
+tests_process_seconds = 37.73893188172951
+smoke_process_seconds = 31.607058426830918
+total_seconds = 69.45479440502822
+note = "process times include Julia startup/JIT; supervisor setup is separate, not package installation"
+
+[tests]
+passed = 223
+failed = 0
+errored = 0
+testset_seconds = 33.7
+exit_code = 0
+
+[smoke]
+exit_code = 0
+accepted_scenarios = 10
+note = "positive outcomes and expected negative outcomes are checked explicitly"
+
+[budget]
+processes = 1
+julia_threads = 1
+blas_threads = 1
+timeout_seconds_per_process = 300
+timed_out = false

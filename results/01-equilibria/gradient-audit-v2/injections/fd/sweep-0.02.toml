@@ -1,0 +1,9 @@
+code_sha256 = "14fef07369ff8441e52b78f79ec0f9c084bde08ecfc54da8f5c7b44e02d1c2d9"
+ds = 0.02
+error = "injected fd exception"
+execution_seconds_since_imports = 4.3866870403289795
+failed_site = "fd"
+julia = "1.10.11"
+rows = []
+status = "FAILED"
+utc = "2026-10-20T14:59:28.682"

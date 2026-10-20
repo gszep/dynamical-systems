@@ -1,0 +1,3 @@
+Test Summary:         | Pass  Total  Time
+experiment03_patterns |  224    224  8.0s
+experiment 03 test suite complete

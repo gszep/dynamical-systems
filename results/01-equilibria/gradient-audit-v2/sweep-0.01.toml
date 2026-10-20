@@ -1,0 +1,311 @@
+baseline_value = 1.507935063864283
+code_sha256 = "f0bd68e763d214fc16ef8a9f55a8aca000630e08550a273556e8203ed0ddb99e"
+ds = 0.01
+execution_seconds_since_imports = 89.31449294090271
+julia = "1.10.11"
+released_gradient = [0.016906029994408017, 0.5094126259175705]
+seed = 20261019
+status = "measured"
+utc = "2026-10-19T15:51:32.530"
+
+[[baseline]]
+bif_flags = 2
+first_p = -1.99
+first_u = -1.5196950998300491
+last_p = 1.9886029039941309
+last_u = 1.5194593963247711
+max_residual = 3.572280345022867e-13
+min_abs_det = 0.012330537259286567
+points = 478
+sum_ds = 6.75994082814333
+
+[[rows]]
+component = 1
+fd = 0.01514533032516141
+h = 0.01
+minus_value = 1.5077862769673427
+plus_value = 1.508089183573846
+roundoff_proxy = 2.0507633392255667e-9
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5171309648897924
+    last_p = 1.9962711107836626
+    last_u = 1.5181902953223336
+    max_residual = 9.35712938000279e-13
+    min_abs_det = 0.00035591998082662446
+    points = 477
+    sum_ds = 6.7457986925196
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5222577760673908
+    last_p = 1.9947697647534386
+    last_u = 1.5230600279174722
+    max_residual = 1.9665498206646384e-13
+    min_abs_det = 0.002696607071314583
+    points = 480
+    sum_ds = 6.788225099390791
+[[rows]]
+component = 2
+fd = 0.5030655926889893
+h = 0.01
+minus_value = 1.502892339330322
+plus_value = 1.5129536511841017
+roundoff_proxy = 2.0486004124590732e-9
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5138168746058704
+    last_p = 1.9879343780626413
+    last_u = 1.513469248500055
+    max_residual = 4.604473786368819e-13
+    min_abs_det = 0.001188379077188606
+    points = 477
+    sum_ds = 6.7457986925196
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.525657800281865
+    last_p = 1.989072175604075
+    last_u = 1.5255008705355302
+    max_residual = 4.826988807981767e-13
+    min_abs_det = 0.020288696020427932
+    points = 479
+    sum_ds = 6.774082963767061
+[[rows]]
+component = 1
+fd = 0.021554081559238547
+h = 0.001
+minus_value = 1.5079145226033015
+plus_value = 1.50795763076642
+roundoff_proxy = 2.048618184333473e-8
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5194387518592065
+    last_p = 1.9907692184461416
+    last_u = 1.519568519194455
+    max_residual = 2.777198175046217e-13
+    min_abs_det = 0.015550916066055742
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.519951433213769
+    last_p = 1.9864354943432092
+    last_u = 1.5193500334248302
+    max_residual = 4.4812230079484386e-13
+    min_abs_det = 0.006451918648584742
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 2
+fd = 0.5115302762404017
+h = 0.001
+minus_value = 1.5074242816658472
+plus_value = 1.508447342218328
+roundoff_proxy = 2.048617824665137e-8
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5191035099072112
+    last_p = 1.9899394532870105
+    last_u = 1.5190932995016915
+    max_residual = 3.071343087488698e-13
+    min_abs_det = 0.01594497652290361
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5202875344465177
+    last_p = 1.9872643950600017
+    last_u = 1.5198258122330564
+    max_residual = 4.116334806767809e-13
+    min_abs_det = 0.008720628806317965
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 1
+fd = 0.021544437154297214
+h = 0.0001
+minus_value = 1.5079329195483226
+plus_value = 1.5079372284357535
+roundoff_proxy = 2.0486168221174075e-7
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196694656892669
+    last_p = 1.9888195847290704
+    last_u = 1.5194703194100978
+    max_residual = 3.487756553784317e-13
+    min_abs_det = 0.012918856711949367
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5197207338249599
+    last_p = 1.9883862123071994
+    last_u = 1.5194484708391416
+    max_residual = 3.657934503053017e-13
+    min_abs_det = 0.011742300312850062
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 2
+fd = 0.5115279460232713
+h = 0.0001
+minus_value = 1.5078839185503565
+plus_value = 1.5079862241395612
+roundoff_proxy = 2.0486168185211973e-7
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196359028605604
+    last_p = 1.9887366470282823
+    last_u = 1.5194227722892533
+    max_residual = 3.520265610007906e-13
+    min_abs_det = 0.01269177820742362
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5197543052464682
+    last_p = 1.9884691413635787
+    last_u = 1.5194960235511408
+    max_residual = 3.6247149648576944e-13
+    min_abs_det = 0.011969341619592955
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 1
+fd = 0.02154434084467027
+h = 1.0e-5
+minus_value = 1.507934848522151
+plus_value = 1.507935279408968
+roundoff_proxy = 2.0486168084958575e-6
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196925364225349
+    last_p = 1.9886245725604699
+    last_u = 1.5194604887413143
+    max_residual = 3.5637691599749045e-13
+    min_abs_det = 0.012389365495587223
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196976632361046
+    last_p = 1.9885812353182721
+    last_u = 1.5194583038842249
+    max_residual = 3.5808037204631276e-13
+    min_abs_det = 0.012271709848047152
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 2
+fd = 0.5115279227529967
+h = 1.0e-5
+minus_value = 1.5079299486598623
+plus_value = 1.5079401792183174
+roundoff_proxy = 2.0486168084598967e-6
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196891797530223
+    last_p = 1.9886162791793034
+    last_u = 1.5194557337776362
+    max_residual = 3.567055035828947e-13
+    min_abs_det = 0.012366659316122686
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.519701019991545
+    last_p = 1.9885895286129915
+    last_u = 1.519463058903814
+    max_residual = 3.577495215329806e-13
+    min_abs_det = 0.012294415655526025
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 1
+fd = 0.02154433986767401
+h = 1.0e-6
+minus_value = 1.5079350423209568
+plus_value = 1.5079350854096365
+roundoff_proxy = 2.0486168083596446e-5
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196948434893633
+    last_p = 1.988605070855695
+    last_u = 1.5194595055675058
+    max_residual = 3.571434057994002e-13
+    min_abs_det = 0.012336420045795715
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.51969535617072
+    last_p = 1.9886007371314727
+    last_u = 1.5194592870817965
+    max_residual = 3.5731230956891775e-13
+    min_abs_det = 0.012324654481030262
+    points = 478
+    sum_ds = 6.75994082814333
+[[rows]]
+component = 2
+fd = 0.5115279212430934
+h = 1.0e-6
+minus_value = 1.5079345523371095
+plus_value = 1.507935575392952
+roundoff_proxy = 2.0486168083592838e-5
+
+    [[rows.minus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196945078185453
+    last_p = 1.9886042415214646
+    last_u = 1.5194590300686215
+    max_residual = 3.5717602075009467e-13
+    min_abs_det = 0.012334149444576115
+    points = 478
+    sum_ds = 6.75994082814333
+
+    [[rows.plus]]
+    bif_flags = 2
+    first_p = -1.99
+    first_u = -1.5196956918423976
+    last_p = 1.9886015664648344
+    last_u = 1.5194597625812394
+    max_residual = 3.572798264377257e-13
+    min_abs_det = 0.012326925078518514
+    points = 478
+    sum_ds = 6.75994082814333

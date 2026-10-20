@@ -1,0 +1,17 @@
+case,quantity,value
+A_two_targets,E_paper,1.0
+A_two_targets,E_code,1.25
+A_two_targets,E_paper_squared,1.0
+A_two_targets,E_code_minus_Epaper2,0.25
+B_minimiser_p1=1.25,E_paper,1.0
+B_minimiser_p1=1.25,E_code,1.5625
+B_minimiser_p1=1.5,E_paper,1.0
+B_minimiser_p1=1.5,E_code,1.25
+B_minimiser_p1=2.0,E_paper,1.0
+B_minimiser_p1=2.0,E_code,1.0
+B_minimiser_p1=2.75,E_paper,1.0
+B_minimiser_p1=2.75,E_code,1.5625
+B_gradient_at_1p5,grad_E_paper,0.0
+B_gradient_at_1p5,grad_E_code,-1.0
+C_scale_x10,E_paper,10.0
+C_scale_x10,E_code,125.0

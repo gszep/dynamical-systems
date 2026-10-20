@@ -1,0 +1,6 @@
+experiment 03 smoke run complete
+results directory: /Users/gszep/Documents/repos/dynamical-systems-exp03/results/03-patterns
+total wall seconds: 3.046842278
+setup / discovery / continuation / mesh / io seconds: 0.643981134 / 1.19743109 / 0.101065054 / 0.967641639 / 0.136662741
+logged failure rows: 41
+distinct discoveries: r_-0p1 new = 2, r_-0p2 new = 2

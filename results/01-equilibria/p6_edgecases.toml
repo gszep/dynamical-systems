@@ -1,0 +1,22 @@
+C1_factored_form_tracks_true_derivative_near_match = true
+C1_note = "code objective, single prediction, exact match: E=(p−t)² is smooth with true gradient 0 (independent unfactored derivative 2(p−t)·v = 0). The released factored gradient form gm2·2v/(p−t) returns NaN (0·Inf) — a REMOVABLE IMPLEMENTATION DEFECT of the factored expression, not a mathematical singularity; near the match the same factored form tracks the true derivative 2dv."
+C1_released_factored_grad_NaN_removable_defect = true
+C1_true_unfactored_grad_zero = true
+C2_kink_genuine_one_sided_flip = true
+C2_note = "paper objective, single prediction, exact match: |p−t| has a genuine kink — one-sided gradients +v/−v; genuinely nondifferentiable (unlike C1)"
+C2_one_sided_minus = [0.9128709291752769, 0.7607257743127308]
+C2_one_sided_plus = [-0.9128709291752769, -0.7607257743127308]
+C3_code_gradient_bounded_kink = true
+C3_note = "multiprediction (one matched, one at distance A): paper E ~ (|d|A)^(1/2) — genuinely UNBOUNDED gradient ∝ |d|^{-1/2} (the sqrt(δ) tail that destabilises fixed-step descent in p8); code E = |d|·A — genuinely nonsmooth but BOUNDED (subgradient → ±A·v), the structure behind the p8 fixed-step stall of the squared objective at |P|=|D|=2"
+C3_paper_gradient_unbounded_sqrt_tail = true
+code_gradient_vanishes_linearly_2vd = true
+empty_predictions_E_code_blind_to_targets = true
+empty_predictions_E_code_equals_1 = 1.0
+empty_predictions_E_paper_is_NaN = true
+empty_predictions_grad_E_code_zero = true
+empty_predictions_note = "released code errors() with empty predictions returns 1 (empty-product init) for ANY targets — the error term is blind to target location when no prediction exists; the paper Eq (4) is undefined there (NaN recorded). The code gradient of the error term is exactly zero: only the measure term can move theta until a first bifurcation appears."
+empty_targets_E_code_zero = 0.0
+fold_velocity_norm = 1.1882916464559687
+near_match_note = "approaching an exact singleton match the paper |d| gradient tends to |v| (persistent crossing force), the code d² gradient vanishes like 2|v|d"
+ok = true
+paper_gradient_tends_to_abs_v = true

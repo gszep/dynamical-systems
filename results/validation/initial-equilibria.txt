@@ -1,0 +1,26 @@
+Parent rerun: experiment 01 standard-library tests
+Date: 2026-10-20 (Asia/Tokyo)
+Integrated source head: 024838a
+Runtime: Julia 1.10.11, macOS x86_64
+Threads: Julia=1, OpenBLAS=1, OpenMP=1
+Command: julia --startup-file=no --threads=1 experiments/01-equilibria/tests.jl
+Depot: isolated parent .julia-depot/01-probes
+
+Test Summary:            | Pass  Total   Time
+experiment 01 equilibria |  101    101  23.1s
+
+all experiment-01 tests passed
+real 31.39
+user 28.02
+sys 1.03
+
+Process exit: 0
+Timing caveat: /usr/bin/time measures process wall/user/system time; the test
+framework reports 23.1 seconds within its testset. Queue and Julia setup/JIT were
+not separately instrumented for this initial rerun, so no separate measurements
+are claimed. Future multi-stage runs use scripts/run_experiments.py.
+
+Scope: checks the independent mathematical probes, NOT a second execution of
+the original package. The builder's separately recorded package tiny-run evidence
+is in results/01-equilibria/. The measure-gradient finite-difference gate is still
+pending at this checkpoint.

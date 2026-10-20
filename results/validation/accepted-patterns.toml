@@ -1,0 +1,45 @@
+run_id = "20261020T152422.300789Z"
+source_commit = "635b0e88f249ac15521f3af0f1ca94f33b560c31"
+source_clean_at_start = true
+runtime = "Julia 1.10.11 macOS x86_64"
+command = "python3 scripts/run_experiments.py --stages 03-patterns --jobs 1 --timeout 300"
+validation = "independent parent rerun; local, not CI"
+scope = "1D reflection-symmetric stationary Swift-Hohenberg branches, not a complete atlas or PDE inference"
+
+[timing]
+queue_seconds = 0.0032108542509377003
+supervisor_setup_seconds = 0.0774358413182199
+tests_process_seconds = 17.58818928571418
+smoke_process_seconds = 13.209798176307231
+total_seconds = 30.879842279013246
+note = "process wall includes startup/JIT; these are observed validation times, not comparative performance benchmarks"
+
+[tests]
+passed = 224
+failed = 0
+errored = 0
+exit_code = 0
+
+[smoke]
+exit_code = 0
+positive_discoveries_per_sweep = true
+usable_continuation_with_fold = true
+required_mesh_solves_converged = true
+localized_states_found = 0
+failed_seed_rows = 41
+N256_diagnostic = "stalled, residual-qualified; cause unconfirmed, not a required converged mesh solve"
+
+[console_label_followup]
+source_commit = "50c0ffa"
+run_id = "20261020T152557.427548Z"
+change = "console timing label and comments only; no numerical source changes"
+phase = "smoke"
+exit_code = 0
+process_seconds = 12.737544666975737
+
+[budget]
+processes = 1
+julia_threads = 1
+blas_threads = 1
+timeout_seconds_per_process = 300
+timed_out = false

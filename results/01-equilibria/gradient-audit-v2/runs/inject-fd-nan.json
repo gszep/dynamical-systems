@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/Users/gszep/Documents/repos/dynamical-systems-research-20261019/.tools/julia-1.10.11/bin/julia",
+    "--startup-file=no",
+    "-L",
+    "/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/cache_only.jl",
+    "--project=/Users/gszep/Documents/repos/dynamical-systems-exp01/experiments/01-equilibria/pkgenv",
+    "gradient_checks.jl",
+    "--mode",
+    "sweep",
+    "--ds",
+    "0.02",
+    "--inject",
+    "fd-nan",
+    "--out-dir",
+    "../../results/01-equilibria/gradient-audit-v2/injections/fd-nan"
+  ],
+  "raw_exit": 1,
+  "expected_exit": 1,
+  "expected_message": "non-finite",
+  "expectation_matched": true,
+  "timed_out": false,
+  "queue_seconds": 0.0,
+  "queue_note": "No launcher queue; earlier human resource hold not timed here",
+  "setup_seconds": 0.001091470941901207,
+  "execution_seconds": 54.548214711248875,
+  "total_seconds": 54.549306182190776,
+  "no_package_setup": true
+}

@@ -1,0 +1,7 @@
+N,seed_tag,r_start,r_fold,s_fold,n_points,termination
+32,seed_large_A1.2,-0.1,-0.2250175121,0.2892080944,23,trivial_approach
+64,seed_large_A1.2,-0.1,-0.2250098178,0.2882999262,23,trivial_approach
+128,seed_large_A1.2,-0.1,-0.2250098178,0.288299926,23,trivial_approach
+32,seed_small_A0.35,-0.1,-0.2249844344,0.4050623629,21,r_stop_hi
+64,seed_small_A0.35,-0.1,-0.2249776842,0.4046849933,21,r_stop_hi
+128,seed_small_A0.35,-0.1,-0.2249776842,0.4046849933,21,r_stop_hi

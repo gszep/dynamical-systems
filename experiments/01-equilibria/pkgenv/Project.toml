@@ -1,0 +1,6 @@
+[deps]
+BifurcationInference = "7fe238d6-d31e-4646-aa16-9d8429fd6da8"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

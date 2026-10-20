@@ -1,0 +1,8 @@
+code_sha256 = "14fef07369ff8441e52b78f79ec0f9c084bde08ecfc54da8f5c7b44e02d1c2d9"
+error = "FD call non-finite or invalid return"
+execution_seconds_since_imports = 42.02279591560364
+injection = "fd-nan"
+julia = "1.10.11"
+mode = "sweep"
+status = "FAILED"
+utc = "2026-10-20T15:00:23.287"

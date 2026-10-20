@@ -1,0 +1,65 @@
+# Setup record — experiment 01 package environment (measured 2026-10-19/20)
+# Every command was tool-supervised with a bounded timeout; no detached
+# processes. Julia binary: shared read-only .tools/julia-1.10.11/bin/julia,
+# tarball SHA-256 bdc6f52e...f34b (verified against the pinned SHA).
+
+[environment]
+julia = "1.10.11"
+julia_depot = "worktree-local .julia-depot (sole setup owner)"
+JULIA_NUM_THREADS = 1
+OPENBLAS_NUM_THREADS = 1
+OMP_NUM_THREADS = 1
+JULIA_NUM_PRECOMPILE_TASKS = 2
+JULIA_PKG_PRECOMPILE_AUTO = "disabled for resolve/download steps, enabled for precompile steps"
+package = "BifurcationInference v0.1.4"
+package_source_pin = "registry tree hash edd1bc83e6e0d571af55039882f6a27037df2524 == tree of upstream commit 534ee7c23af16d542a248f181f5e6be7056e30b6 (verified byte-identical; no substitution)"
+
+[timings_epoch_seconds]
+queue = 0.0
+queue_note = "sole package setup owner; no wait for a setup slot (other builders wrote code only)"
+step_A_url_add_start = 1792419942
+step_A_url_add_seconds = 9
+step_A2_registry_add_start = 1792419974
+step_A2_registry_add_seconds = 68
+step_B_precompile_start = 1792420048
+step_B_precompile_seconds = 383
+diagnosis_seconds = 155
+step_C_krylovkit_pin_start = 1792420586
+step_C_krylovkit_pin_seconds = 115
+setup_wall_seconds_first_to_load = 759
+setup_compute_seconds = 575
+setup_note = "setup FINISHED: `using BifurcationInference` succeeded (load 7.2 s), inside the 30-minute total-setup bound"
+
+[execution_timings_seconds]
+note = "each timing is labelled by the actual invocation it came from; 'reported' = in-process printed/test-summary value, 'wall' = shell date-delta including process startup. No values were interpolated or blended across invocations."
+
+[execution_timings_seconds.invocation_1_first_validated_pass_2026-10-19]
+tests_jl_reported = 22.4
+main_jl_reported = 29.4
+package_checks_jl_reported = 37.3
+note = "first pass in which all three entry points exited 0 with the then-current code; these values were the ones recorded in the first commit's setup_record"
+
+[execution_timings_seconds.invocation_2_final_validation_sweep_2026-10-20]
+tests_jl_reported = 14.6
+tests_jl_wall = 16
+main_jl_reported = 30.5
+main_jl_wall = 33
+package_checks_jl_reported = 44.2
+package_checks_jl_wall = 59
+note = "full clean rerun of the same code immediately before the first commit; wall = shell date deltas around each command"
+
+[blockers_encountered]
+"1" = "Pkg.add by URL + rev failed: Julia LibGit2 clone of github.com aborted with `GitError ... user cancelled credential request` (git CLI and HTTPS raw access worked fine). Worked around by adding the registered version 0.1.4 after verifying that its registry tree hash equals the tree of the pinned commit — byte-identical source, no substitution."
+"2" = "Fresh resolution picked KrylovKit 0.8.3 (inside BifurcationKit 0.3.6's declared compat ^0.7,^0.8). KrylovKit 0.8 deprecates RecursiveVec from a type to a constructor function; BifurcationKit 0.3.6 src/BorderedArrays.jl:69 defines rmul!(A::RecursiveVec, a::Number) with RecursiveVec as a type, so the module failed to load on ANY runtime with: ArgumentError: invalid type for argument A in method definition for rmul!. Fix: pin KrylovKit 0.7.1 (also inside the declared compat range — the version a 2023-era resolver would have chosen). No source modifications, no compat overrides."
+"3" = "Falsified intermediate hypothesis: that the load failure was a Julia-1.10-specific rejection of the BorderedArrays.jl:69 method-signature pattern. A minimal reproduction of the pattern in isolation was ACCEPTED by Julia 1.10.11; the true cause was KrylovKit API drift."
+
+[versions]
+BifurcationInference = "0.1.4"
+BifurcationKit = "0.3.6"
+KrylovKit = "0.7.1 (pinned within declared compat after the 0.8.3 drift)"
+Flux = "0.14.25"
+ForwardDiff = "0.10.39"
+StaticArrays = "1.9.23"
+SpecialFunctions = "2.9.0"
+OpenBLAS = "0.3.23+5 (OpenBLAS_jll; 1 thread pinned)"
+full_resolution = "see experiments/01-equilibria/pkgenv/Manifest.toml (committed)"

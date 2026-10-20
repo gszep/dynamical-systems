@@ -1,0 +1,9 @@
+code_sha256 = "14fef07369ff8441e52b78f79ec0f9c084bde08ecfc54da8f5c7b44e02d1c2d9"
+ds = 0.02
+error = "FD call non-finite or invalid return"
+execution_seconds_since_imports = 41.90481996536255
+failed_site = "fd"
+julia = "1.10.11"
+rows = []
+status = "FAILED"
+utc = "2026-10-20T15:00:23.169"
