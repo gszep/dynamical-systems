@@ -5,6 +5,7 @@ Research package (2026-10-19) investigating a revival of the inverse-bifurcation
 ## Contents
 
 - **Active experiments** — [EXPERIMENTS.md](EXPERIMENTS.md): authorized experiments 1–3, acceptance gates, linked builders, execution budget and overnight checkpoint.
+- **Measured outcomes** — [reports/Experiment results.md](reports/Experiment%20results.md): numerical results, independent reruns, unresolved released-gradient gate, and the limits of the cycle/PDE baselines. Passing standalone tests is not a pass of the released-gradient audit.
 - **Final report** — [reports/Reviving dynamical landscape research.md](reports/Reviving%20dynamical%20landscape%20research.md): synthesis of all six notes; separates empirical facts, recommendations and unknowns; includes reading-coverage disclosure.
 - **Research notes** — [research_notes/Reviving dynamical landscape research/](research_notes/Reviving%20dynamical%20landscape%20research/):
   - [thesis.md](research_notes/Reviving%20dynamical%20landscape%20research/thesis.md) — thesis aims, mathematics, assumptions, limitations and future-work headings (read from full LaTeX source; embedded publication PDFs not read).
