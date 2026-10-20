@@ -1,0 +1,29 @@
+source_commit = "56b3d9d"
+validation = "parent rerun of audit unit contract and assessment of committed raw sweeps"
+runtime = "Julia 1.10.11 macOS x86_64; cache-only package loading"
+full_sweeps_recomputed_by_parent = false
+raw_sweep_source = "results/01-equilibria/gradient-audit-v2/"
+gate = "INCONCLUSIVE_OR_FAILED"
+
+[unit_contract]
+passed = 21
+failed = 0
+raw_exit_code = 0
+supervised_total_seconds_rounded = 3.55
+
+[assessment]
+raw_exit_code = 1
+expected_nonzero_observed = true
+supervised_total_seconds_rounded = 19.48
+component_1_continuum = "INCONCLUSIVE"
+component_1_returned_sum = "INCONCLUSIVE"
+component_2_continuum = "INCONCLUSIVE"
+component_2_returned_sum = "INCONCLUSIVE"
+note = "Aggregate mesh-resolution gates are inconclusive. Some component-2 per-mesh discrete-gradient checks fail; see assessment.toml. Correct failure propagation is not scientific acceptance."
+
+[scope]
+models = "scalar saddle-node only for this released-gradient audit"
+parameter = [1.0, -1.0]
+window = [-2.0, 2.0]
+no_asymptotic_order_claim = true
+no_cause_identified = true

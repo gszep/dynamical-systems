@@ -3,6 +3,9 @@
 
 No package installation is performed. Run only after the package setup owner
 has finished. Logs and timings remain under .tools/runs for failure diagnosis.
+This covers standalone tests/smokes only. Experiment 01's upstream package checks
+and gradient audit require its pinned package environment and separate commands;
+passing this runner must not be reported as passing the released-gradient gate.
 """
 import argparse
 import concurrent.futures

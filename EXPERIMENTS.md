@@ -12,7 +12,12 @@ No detached Julia/experiment-runner processes remained at recovery.
   The SAME child `ses_eab758964ffeJCzR58tBi155La` now resumes on
   `anthropic/claude-opus-5-5` to assess the existing evidence, validate remaining
   failure paths and commit an honest pass/fail/inconclusive result. It must not
-  repeat setup or discard completed sweeps.
+  repeat setup or discard completed sweeps. Recovery is now complete: `188436e`
+  integrated as `56b3d9d`, and parent independently confirmed 21 audit-unit passes
+  plus assessment exit **1**. The released gradient remains **unvalidated**:
+  component-2 per-mesh mismatches fail, while mesh-resolution gates remain
+  inconclusive. See `results/validation/equilibrium-audit-v2.toml`. This is a
+  retained scientific result, not an infrastructure blocker or a passing gate.
 - **Cycles:** builder commit `39f0f12` integrated as `684e9b3`; parent rerun
   `20261020T145811.880247Z` confirms **223/223 tests pass**, smoke exit 0 with ten
   accepted scenarios (37.74s tests + 31.61s smoke process wall). The numerical slot
