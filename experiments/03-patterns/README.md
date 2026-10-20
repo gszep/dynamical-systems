@@ -5,19 +5,22 @@ Newton solvers, pseudo-arclength continuation through folds, multi-seed branch
 discovery with deflation, symmetry-aware morphology descriptors, and
 mesh-convergence evidence on dense small grids (N = 32/64/128).
 
-**Status: implemented and first executed (2026-10-20).** The code was
-originally written under a concurrent-package-setup hold (no execution); after
-release, the pinned runtime executed `scripts/tests.jl`
-(**208/208 passed, exit 0**) and `scripts/main.jl` (**exit 0**), writing the
-committed artifacts under `results/03-patterns/` (see that README for the
-provenance and headline numbers: fold −0.2250098 vs Galerkin −0.225, Galerkin
+**Status: implemented, executed and gate-validated (2026-10-20/21).** The
+code was originally written under a concurrent-package-setup hold (no
+execution); after release, the pinned runtime executed `scripts/tests.jl`
+(first run 208/208; final-review rerun **224/224 passed, exit 0**) and
+`scripts/main.jl` (**exit 0, acceptance gates PASS**), writing the committed
+artifacts under `results/03-patterns/` (see that README for the provenance
+and headline numbers: fold −0.2250098 vs Galerkin −0.225, Galerkin
 amplitudes reproduced at both discovery parameters, mesh errors
 1.84e-3 → 1.80e-8, phase-mode defect sweep, 41 recorded discovery failures,
-no localized states found). Two static-review rounds were fixed before
-execution (inner constructor, mass-normalized restricted rates, explicit
-known-root exclusion, reflection-restriction scope) and their regressions are
-part of the passing suite. `EXPERIMENTS.md` (a repository root file, outside
-this experiment's ownership) is updated by the parent.
+no localized states found). Three review rounds were fixed (two static, one
+execution-based: inner constructor, mass-normalized restricted rates,
+explicit known-root exclusion, reflection-restriction scope, measured
+phase-mode defect characterization, explicit acceptance gates with nonzero
+exit, partially-instrumented timing labels) and their regressions are part
+of the passing suite. `EXPERIMENTS.md` (a repository root file, outside this
+experiment's ownership) is updated by the parent.
 
 ## Mathematical formulation
 
@@ -120,16 +123,24 @@ are broken by the discretization), so the relative residual
 — approximately 2·k_Nyquist times the amplitude of the first nonlinear
 harmonic past Nyquist. Measured (exposed in `patterns_summary.toml` under
 `[phase_mode]`): **0.543** at N=32 (the quintic's k=5 output aliases),
-**6.24e-4** at N=64 (its k=9 output aliases), **1.80e-9** at N=128 and
-**1.78e-7** at N=256 (both once all significant harmonics fit; the N=256
-entry is limited by the measured Newton roundoff floor at that resolution —
-see limitations — not by aliasing). The implementation was verified before
-interpreting these: the tests check the spectral derivative against
-band-limited analytic data and against an independent FD derivative at its
-derived truncation order, and check the assembled J·U' against an independent
-pointwise/DFT application of r I − (1+∂xx)² + diag(g). The earlier claim that
-‖J U'‖ < 1e-9 at the working resolution was a false exact-null assertion and
-has been replaced by this measured convergence-based characterization.
+**6.24e-4** at N=64 (its k=9 output aliases), **1.80e-9** at N=128 (all
+significant harmonics fit). The N=256 entry (**1.78e-7**) uses a
+residual-qualified stalled iterate: the N=256 solve stalls at
+‖R‖ = 1.297e-8 (`no_descent`) under the default 1e-9 tolerance while its
+iterate is excellent (pointwise residual ~1e-10); **the cause of the stall
+is unconfirmed** — a dimensionless backward-error bound
+eps·cond(J_even) ≈ 2.22e-16 × 4.2e6 ≈ 9.3e-10 does not by itself establish
+an absolute residual floor, and no independent error analysis was performed
+— so the sweep accepts that measurement point alone at ‖R‖ ≤ 1e-6 and treats
+the entry as stall-limited rather than aliasing-limited (consistent with
+its exceeding the N=128 value, since aliasing decreases with resolution).
+The implementation was verified before interpreting these: the tests check
+the spectral derivative against band-limited analytic data and against an
+independent FD derivative at its derived truncation order, and check the
+assembled J·U' against an independent pointwise/DFT application of
+r I − (1+∂xx)² + diag(g). The earlier claim that ‖J U'‖ < 1e-9 at the
+working resolution was a false exact-null assertion and has been replaced by
+this measured convergence-based characterization.
 
 ## Algorithms
 
@@ -226,13 +237,19 @@ folds or stability.
 * `failures.csv` — every failed nonlinear solve / corrector attempt / guard
   rejection, with context (stage, tag, step, attempt, ds, residual, reason).
 * `patterns_summary.toml` — reproducibility metadata: Julia version, machine,
-  timings (queue/setup/stages/internal/total with an explicit scope note; the
-  supervisor-captured process wall time is authoritative), all seeds,
-  tolerances, thresholds, counts, fold numbers vs the Galerkin estimate,
-  per-family discovery tallies, morphology-vs-topology evidence, the measured
-  `[phase_mode]` defect table, and an
+  timings (queue/setup/stages/internal/total — partially instrumented, scope
+  note included; the supervisor-captured process wall time is authoritative),
+  all seeds, tolerances, thresholds, counts, fold numbers vs the Galerkin
+  estimate, per-family discovery tallies, morphology-vs-topology evidence,
+  the measured `[phase_mode]` defect table, the explicit `[acceptance]`
+  gates, and an
   explicit scope statement (no atlas, no 2D, no snaking claims, no full-space
   stability claims).
+* acceptance gates: the smoke run FAILS (recorded in `failures.csv`, reported
+  in `[acceptance]`, and `scripts/main.jl` exits nonzero) unless every
+  discovery sweep found at least one new solution, the primary-branch
+  continuation is usable with a detected fold, and all required
+  32/64/128 mesh Newton solves converged.
 * `runs/` — captured stdout of the executed test and smoke runs, committed
   for in-repo provenance.
 
@@ -268,7 +285,7 @@ compilation.
 | `fd_operator_expected_spectrum` | exact FD circulant spectrum; (I+D2) eigenvalues differ from spectral values (negative case) and converge at ratio ≈ 4 |
 | `newton_stationary_and_independent_expected` | residual < tol; rms matches single-mode Galerkin prediction within 8%; zero mean by symmetry; two coexisting states at r = -0.1 with n_pos = 0 vs 1 (mass-normalized rates); FD cross-check residual decreases with h and is genuinely nonzero |
 | `phase_mode_and_removal` | derivative exact on band-limited data; agrees with an independent FD derivative at its derived O((kh)²) truncation (measured 0.0255 = 1−sin(π/8)/(π/8)); J·U' verified against an independent pointwise/DFT assembly; defect ‖J U'‖/‖U'‖ < 0.05 at N=64 (measured 6.24e-4 — an aliasing quantity, not an exact null); full spectrum has exactly one ≈0 eigenvalue (the discrete phase mode); mass-normalized restricted spectrum has none (min rate > 0.05); spectrum invariant under grid-permutation translation (non-vacuous); descriptors translation-invariant |
-| `phase_mode_resolution_defect` | defect swept over N=32/64/128/256: strictly decreasing 32→64→128 (measured 0.543 → 6.24e-4 → 1.80e-9) and < 1e-6 for N ≥ 128 once all significant nonlinear harmonics fit; N=256 measured at the Newton roundoff floor (1.78e-7, accepted at ‖R‖ ≤ 1e-6 there because the default 1e-9 is below eps·cond(J_even) ≈ 1.3e-8 at that resolution) |
+| `phase_mode_resolution_defect` | defect swept over N=32/64/128/256: strictly decreasing 32→64→128 (measured 0.543 → 6.24e-4 → 1.80e-9) and < 1e-6 for N ≥ 128 once all significant nonlinear harmonics fit; N=256 measured 1.78e-7 using a residual-qualified stalled iterate (stall at ‖R‖=1.297e-8, `no_descent`, cause unconfirmed; ‖R‖ ≤ 1e-6 accepted for that point ONLY — N=32/64/128 must meet the default 1e-9) |
 | `continuation_fold` | ≥ 20 accepted points; fold detected inside (−0.35, −0.12); fold amplitude window; arclength constraint exact at every point; no near-trivial accepted point; up-direction monotone to r_stop, fold-free |
 | `discovery_guards_and_deflation` | trivial probe rejected with reason "trivial"; ≥ 1 new cosk pattern; accepted set rms > 0.05; dedupe detects the undeflated repeat; exact known seed → `known_root_excluded` (no false success at a zero of the undeflated merit); near-known seed excluded or lands on a genuinely new root; any deflated success has true residual at tolerance and is far from every known root |
 | `descriptor_symmetry_and_distinctness` | reflection + fractional-translation invariance (non-vacuous); cos k=1 vs cos k=2 vs sech² bump distinct in kbar/pr/bands |
@@ -276,24 +293,28 @@ compilation.
 | `morphology_vs_topology` | two branch points at the same r: kbar agrees (morphology) while norm ratio > 1.4 and even-sector n_pos differs (topology) |
 | `mesh_convergence` | N=32/64/128 Newtons converge; strict error decrease (values and coefficients); spectral abscissa converges; fold location converges (|r_f(128)−r_f(64)| < 5e-3) |
 | `trivial_solution_contamination` | zero seed converges in 0 iterations and is classified trivial; tiny-noise seed collapses and is rejected |
+| `acceptance_gates_negative_injection` | the explicit smoke acceptance gates: good inputs pass; missing discoveries, missing/unusable branch, undetected fold, too-few branch points, failed or missing mesh solves each fail their gate and are recorded in the failure log |
 | `io_roundtrip` | TOML write/parse roundtrip incl. nested tables, bools, arrays; fallback TOML writer exercised directly; CSV formatting incl. NA for NaN |
 | `rng_and_seeds_determinism` | TinyRNG determinism/difference/range; seed table deterministic, 26 seeds with the recorded family counts |
 
 ## Known limitations (measured where noted)
 
-1. **Executed and validated (2026-10-20)**: tests 208/208 passed, smoke
-   exit 0, artifacts committed under `results/03-patterns/` with logs and
-   provenance. Remaining numbers below are the recorded facts and limits of
-   the executed configuration.
-2. **N=256 Newton roundoff floor (measured)**: the absolute tolerance
-   ‖R‖ ≤ 1e-9 is below the achievable floor eps·cond(J_even) ≈ 1.3e-8 at
-   N=256 (cond ≈ 4.2e6 from the critical-mode vs Nyquist eigenvalue spread;
-   the solve stalls at 1.297e-8 with `no_descent` while the iterate is an
-   excellent solution, pointwise residual ~1e-10). The phase-defect sweep
-   therefore accepts ‖R‖ ≤ 1e-6 for that measurement point only; all
-   resolutions used elsewhere (N ≤ 128) converge under the default
-   tolerance. The N=256 defect entry (1.78e-7) is floor-limited, not
-   aliasing-limited.
+1. **Executed and validated (2026-10-20/21)**: tests 224/224 passed, smoke
+   exit 0 with acceptance gates PASS, artifacts committed under
+   `results/03-patterns/` with logs and provenance. Remaining numbers below
+   are the recorded facts and limits of the executed configuration.
+2. **N=256 Newton stall (measured; cause unconfirmed)**: the N=256 solve
+   stalls at ‖R‖ = 1.297e-8 (`no_descent`) under the default 1e-9 tolerance,
+   while the iterate is residual-qualified (‖R‖ ≤ 1e-6; pointwise residual
+   ~1e-10; rms matches the coarser-grid solutions). The cause is unconfirmed:
+   a dimensionless backward-error bound
+   eps·cond(J_even) ≈ 2.22e-16 × 4.2e6 ≈ 9.3e-10 does not by itself
+   establish an absolute residual floor, and no independent rigorous error
+   analysis was performed. The phase-defect sweep accepts the stalled iterate
+   for the N=256 measurement point ONLY (all other resolutions must converge
+   under the default tolerance); the N=256 defect entry (1.78e-7) is
+   stall-limited rather than aliasing-limited on that evidence, consistent
+   with its exceeding the N=128 value.
 3. **Deflation changes discovery basins (measured)**: with root-removing
    deflation, seeds that would re-find known roots fail instead — the first
    run recorded 38 `no_descent` and 3 `known_root_excluded` rows. At r = −0.1

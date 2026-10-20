@@ -23,7 +23,7 @@ export SHConfig, Discretization, TinyRNG,
        seed_table, seed_values, SeedSpec, run_discovery,
        classify_solution, is_duplicate, dedup_distance, rel_dist,
        FailLog, record!, write_csv, dump_toml, toml_safe, fmt_val,
-       run_smoke, pick_continuation_start
+       run_smoke, pick_continuation_start, acceptance_gates
 
 include("config.jl")
 include("rng.jl")

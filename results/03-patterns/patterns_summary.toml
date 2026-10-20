@@ -1,36 +1,29 @@
+[phase_mode]
+note = "relative phase-direction residual ||J U'||/||U'|| of the full-space collocation linearization: U' is an exact null vector of the continuous problem, but the undealiased collocation nonlinearity preserves only grid shifts, so the defect is a resolution-dependent aliasing quantity (dominated by the first nonlinear harmonic past the Nyquist limit), not an exact null; the full-space spectrum still contains exactly one near-zero eigenvalue"
+n256_note = "the N = 256 solve stalls at ||R|| ~ 1.3e-8 (measured, reason no_descent; cause unconfirmed - a dimensionless eps*cond(J_even) ~ 9.3e-10 bound does not establish an absolute residual floor and no independent error analysis was performed); that measurement point ALONE accepts the residual-qualified stalled iterate at ||R|| <= 1e-6 (pointwise ~1e-10); all other resolutions converge under the default 1e-9 tolerance"
+JUprime_over_Uprime = ["0.5428522219", "0.0006239788148", "1.79622188e-09", "1.780965267e-07"]
+Ns = [32, 64, 128, 256]
+
+[failures]
+n_logged = 41
+
 [timing]
-discovery_seconds = 1.19743109
-total_seconds = 3.046842278
-setup_seconds = 0.643981134
-mesh_seconds = 0.967641639
-scope_note = "stage timings include first-call JIT compilation of the methods they invoke; setup_seconds covers module load; total_seconds = setup + internal (interpreter startup/exit excluded); the supervisor-captured process wall time is authoritative"
-continuation_seconds = 0.101065054
-io_seconds = 0.136662741
-internal_seconds = 2.402861144
+discovery_seconds = 0.480008064
+total_seconds = 1.4637208959999999
+setup_seconds = 0.481443582
+mesh_seconds = 0.277430763
+scope_note = "partially instrumented time: stage sub-timings include first-call JIT compilation of the methods they invoke; total_seconds = setup_seconds (module include + using, script-measured) + internal_seconds (discovery/continuation/mesh/io stages); NOT included: interpreter startup/exit, script-level statements outside the measured windows, and the summary/TOML construction after the io stage; the supervisor-captured process wall time is the authoritative end-to-end figure"
+continuation_seconds = 0.117612066
+io_seconds = 0.055857643
+internal_seconds = 0.982277314
 queue_note = "single local process; no queueing"
 queue_seconds = 0.0
 
-[meta]
-julia_version = "1.10.11"
-started_unix = 1.792424797199372e9
-provenance_note = "this code was written without execution (concurrent package setup); the numbers in this file are the first execution evidence from the run that wrote it"
-equation = "u_t = r*u - (1 + d_xx)^2 u + b*u^3 - u^5 (b > 0 subcritical), periodic x in [0, L)"
-experiment = "03-patterns"
-threads_note = "scripts pin BLAS to one thread; no Julia threads are spawned"
-machine = "x86_64-apple-darwin24.0.0"
-blas_threads = 1
-
-[problem]
-r_fix = -0.1
-N_main = 64
-Ns_mesh = [32, 64, 128]
-subspace = "reflection-symmetric (even/cosine) branch restriction; a phase condition that excludes states with no even translate, not a translation quotient"
-linear_spectrum_formula = "eigenvalues of r*I - (1+d_xx)^2 at wavenumber k: r - (1 - k^2)^2"
-restricted_rates = "even-subspace rates are mass-normalized: eigenvalues of G^{-1/2}(S'JS)G^{-1/2}, G = S'S"
-r_discovery = [-0.1, -0.2]
-discretization = "Fourier pseudospectral collocation, dense exact DFT matrices, no dealiasing"
-b = 1.0
-L = 25.132741228718345
+[scope]
+stability_claims = "eigenvalues are reported for the reflection-invariant (even) subspace and, separately, the full space; the translation phase mode is absent from the even spectrum by construction; no full-space asymptotic-stability claim is made"
+snaking = "no snaking claims: localized-seed outcomes are recorded as discovered, not asserted"
+locality = "single 1D configuration (L = 8*pi, b = 1); not 2D spots/stripes; no PDE inference"
+completeness = "no exhaustive atlas is claimed: fixed seed table, deflation-assisted Newton, failures recorded"
 
 [mesh.seed_large]
 err_c16_vs_finest_by_N = ["0.001838886688", "4.833627611e-10", "NA"]
@@ -58,11 +51,72 @@ rms_by_N = ["0.2763403267", "0.2763320765", "0.2763320765"]
 all_newton_converged = true
 seed_amplitude = 0.35
 
-[scope]
-stability_claims = "eigenvalues are reported for the reflection-invariant (even) subspace and, separately, the full space; the translation phase mode is absent from the even spectrum by construction; no full-space asymptotic-stability claim is made"
-snaking = "no snaking claims: localized-seed outcomes are recorded as discovered, not asserted"
-locality = "single 1D configuration (L = 8*pi, b = 1); not 2D spots/stripes; no PDE inference"
-completeness = "no exhaustive atlas is claimed: fixed seed table, deflation-assisted Newton, failures recorded"
+[params]
+tol_residual = 1.0e-9
+ds0 = 0.03
+eig_pos_threshold = 1.0e-6
+seedA_loc = [0.8, 1.3]
+max_backtrack = 8
+max_newton = 30
+dedup_tol = 0.05
+seedA_cos = [0.35, 0.7, 1.2]
+rms_trivial_disc = 1.0e-6
+deflation = "classical root-removing deflation M = prod 1/||c-c_i||^2 (scale-free), discovery only; convergence judged on the true residual; exact/near known roots excluded (known_root_excluded)"
+seedC_loc = [0.0, 12.566370614359172]
+ds_max = 0.05
+rms_cap = 3.0
+r_stop_lo = -0.45
+rms_trivial = 0.02
+steps_max = 250
+seedW_loc = [2.0, 4.0]
+r_stop_hi = 0.1
+random_seed_ids = [101, 203, 307, 401, 503, 601, 701, 803, 907, 1009]
+random_targets = [0.4, 0.8, 1.2]
+random_band_modes = 6
+ds_min = 0.0001
+seedK_cos = [1.0, 2.0]
+
+[branch_primary]
+npts_dir1 = 7
+folds_min_down = -0.22500981780372678
+term_dir-1 = "trivial_approach"
+term_dir1 = "r_stop_hi"
+status = "ok"
+npts_dir-1 = 23
+analytic_galerkin_fold_estimate = -0.225
+start_r = -0.1
+n_folds_total = 1
+start_tag = "cosk_k1_A0.7"
+start_rms = 0.7243573547804365
+
+[meta]
+julia_version = "1.10.11"
+started_unix = 1.79250968273338e9
+provenance_note = "this code was written without execution (concurrent package setup); the numbers in this file are the first execution evidence from the run that wrote it"
+equation = "u_t = r*u - (1 + d_xx)^2 u + b*u^3 - u^5 (b > 0 subcritical), periodic x in [0, L)"
+experiment = "03-patterns"
+threads_note = "scripts pin BLAS to one thread; no Julia threads are spawned"
+machine = "x86_64-apple-darwin24.0.0"
+blas_threads = 1
+
+[problem]
+r_fix = -0.1
+N_main = 64
+Ns_mesh = [32, 64, 128]
+subspace = "reflection-symmetric (even/cosine) branch restriction; a phase condition that excludes states with no even translate, not a translation quotient"
+linear_spectrum_formula = "eigenvalues of r*I - (1+d_xx)^2 at wavenumber k: r - (1 - k^2)^2"
+restricted_rates = "even-subspace rates are mass-normalized: eigenvalues of G^{-1/2}(S'JS)G^{-1/2}, G = S'S"
+r_discovery = [-0.1, -0.2]
+discretization = "Fourier pseudospectral collocation, dense exact DFT matrices, no dealiasing"
+b = 1.0
+L = 25.132741228718345
+
+[acceptance]
+positive_discoveries_per_sweep = true
+note = "explicit gates: >= 1 new solution in every discovery sweep; branch status ok with a finite detected fold and >= 2 accepted points in each direction; all required mesh Newton solves (N = 32/64/128, every seed label) converged; scripts/main.jl exits nonzero when ok is false"
+mesh_solves_converged = true
+ok = true
+usable_continuation_with_fold = true
 
 [discovery.r_-0p1]
 n_converged = 4
@@ -139,50 +193,3 @@ n_not_converged = 19
     n_seeds = 8
     n_new = 0
     n_accepted = 0
-
-[failures]
-n_logged = 41
-
-[params]
-tol_residual = 1.0e-9
-ds0 = 0.03
-eig_pos_threshold = 1.0e-6
-seedA_loc = [0.8, 1.3]
-max_backtrack = 8
-max_newton = 30
-dedup_tol = 0.05
-seedA_cos = [0.35, 0.7, 1.2]
-rms_trivial_disc = 1.0e-6
-deflation = "classical root-removing deflation M = prod 1/||c-c_i||^2 (scale-free), discovery only; convergence judged on the true residual; exact/near known roots excluded (known_root_excluded)"
-seedC_loc = [0.0, 12.566370614359172]
-ds_max = 0.05
-rms_cap = 3.0
-r_stop_lo = -0.45
-rms_trivial = 0.02
-steps_max = 250
-seedW_loc = [2.0, 4.0]
-r_stop_hi = 0.1
-random_seed_ids = [101, 203, 307, 401, 503, 601, 701, 803, 907, 1009]
-random_targets = [0.4, 0.8, 1.2]
-random_band_modes = 6
-ds_min = 0.0001
-seedK_cos = [1.0, 2.0]
-
-[branch_primary]
-npts_dir1 = 7
-folds_min_down = -0.22500981780372678
-term_dir-1 = "trivial_approach"
-term_dir1 = "r_stop_hi"
-status = "ok"
-npts_dir-1 = 23
-analytic_galerkin_fold_estimate = -0.225
-start_r = -0.1
-n_folds_total = 1
-start_tag = "cosk_k1_A0.7"
-start_rms = 0.7243573547804365
-
-[phase_mode]
-note = "relative phase-direction residual ||J U'||/||U'|| of the full-space collocation linearization: U' is an exact null vector of the continuous problem, but the undealiased collocation nonlinearity preserves only grid shifts, so the defect is a resolution-dependent aliasing quantity (dominated by the first nonlinear harmonic past the Nyquist limit), not an exact null; the full-space spectrum still contains exactly one near-zero eigenvalue"
-n256_note = "at N = 256 the absolute Newton tolerance 1e-9 is below the measured roundoff floor (cond(J_even) ~ 4e6, stall at ||R|| ~ 1.3e-8), so that measurement point accepts ||R|| <= 1e-6 (pointwise residual ~1e-10); all other resolutions converge under the default tolerance"
-JUprime_over_Uprime = ["0.5428522219", "0.0006239788148", "1.79622188e-09", "1.780965267e-07"]
-Ns = [32, 64, 128, 256]

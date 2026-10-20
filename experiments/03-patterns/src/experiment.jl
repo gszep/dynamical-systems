@@ -26,6 +26,55 @@ const FOLD_HEADER = ["N", "seed_tag", "r_start", "r_fold", "s_fold", "n_points",
 const FAILURES_HEADER = ["stage", "tag", "direction", "r", "N", "step", "attempt", "ds",
                          "residual", "reason"]
 
+# Explicit acceptance gates for the smoke run: the run is a FAILURE if any
+# required outcome is missing. Pure function of the stage outputs so it can
+# be negative-injection tested without rerunning the experiment:
+#   * positive discoveries: >= 1 new solution in EVERY discovery sweep;
+#   * usable continuation including a fold: branch status ok, a finite
+#     detected fold, and >= 2 accepted points in each direction;
+#   * successful required mesh solves: all Newton solves converged for every
+#     seed label at the required resolutions (N = 32/64/128).
+# Failing gates are recorded into the FailLog (which lands in failures.csv).
+function acceptance_gates(discovery_all, branch_info, mesh_stats, mesh_seeds,
+                          fl::Union{Nothing,FailLog}=nothing)
+    gate_disc = !isempty(discovery_all) &&
+                all([count(rec -> rec.is_new, dres.records) >= 1
+                     for dres in discovery_all])
+    gate_cont = get(branch_info, "status", "") == "ok" &&
+                haskey(branch_info, "folds_min_down") &&
+                branch_info["folds_min_down"] isa Float64 &&
+                isfinite(branch_info["folds_min_down"]) &&
+                get(branch_info, "npts_dir1", 0) >= 2 &&
+                get(branch_info, "npts_dir-1", 0) >= 2
+    gate_mesh = !isempty(mesh_seeds)
+    for (label, _) in mesh_seeds
+        entry = get(mesh_stats, "seed_$(label)", nothing)
+        gate_mesh = gate_mesh && entry !== nothing &&
+                    get(entry, "all_newton_converged", false) == true
+    end
+    if fl !== nothing
+        if !gate_disc
+            record!(fl, Any["acceptance", "positive_discoveries_per_sweep", "-", "-",
+                            "-", "-", "-", "-", "-",
+                            "no new solution discovered in at least one discovery sweep"])
+        end
+        if !gate_cont
+            record!(fl, Any["acceptance", "usable_continuation_with_fold", "-", "-",
+                            "-", "-", "-", "-", "-",
+                            "branch continuation missing/unusable or fold not detected"])
+        end
+        if !gate_mesh
+            record!(fl, Any["acceptance", "mesh_solves_32_64_128", "-", "-",
+                            "-", "-", "-", "-", "-",
+                            "a required mesh Newton solve did not converge"])
+        end
+    end
+    return (ok=gate_disc && gate_cont && gate_mesh,
+            positive_discoveries_per_sweep=gate_disc,
+            usable_continuation_with_fold=gate_cont,
+            mesh_solves_converged=gate_mesh)
+end
+
 # Continuation start preference: (1) cosk seed with k = 1 at r_fix, then (2)
 # any accepted discovery at r_fix, then (3) any accepted discovery; always the
 # largest rms (stays away from the trivial branch and the pitchfork).
@@ -225,16 +274,18 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
     # phase-mode defect sweep (see spectrum.jl): ||J U'||/||U'|| is a
     # resolution-dependent aliasing quantity of the undealiased collocation
     # discretization - exposed here per resolution instead of claimed as an
-    # exact null. Reuses the large-seed mesh solutions; adds N = 256. At
-    # N = 256 the absolute Newton tolerance 1e-9 sits below the measured
-    # roundoff floor (stall at ||R|| ~ 1.3e-8; cond(J_even) ~ 4e6), so the
-    # sweep accepts ||R|| <= 1e-6 for this measurement point only.
+    # exact null. Reuses the large-seed mesh solutions; adds N = 256. The
+    # N = 256 solve stalls at ||R|| ~ 1.3e-8 (measured, reason no_descent;
+    # cause unconfirmed) under the default 1e-9 tolerance while the iterate
+    # is residual-qualified (pointwise ~1e-10), so that measurement point
+    # ALONE accepts the stalled iterate at ||R|| <= 1e-6; all other
+    # resolutions must converge under the default tolerance.
     pd_ns = Int[]
     pd_vals = Float64[]
     for N in vcat(Ns_mesh, [256])
         if haskey(large_by_N, N)
             s = large_by_N[N]
-            if s.res.converged || s.res.residual <= 1.0e-6
+            if s.res.converged || (N == 256 && s.res.residual <= 1.0e-6)
                 push!(pd_ns, N)
                 push!(pd_vals, phase_mode_defect(s.d, cfg, s.res.c, cfg.r_fix))
             end
@@ -242,7 +293,7 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
             dN = Discretization(L, N)
             u0N = [maximum(cfg.seedA_cos) * cos(1.0 * dN.x[j]) for j in 1:N]
             resN = newton_even(dN, cfg, to_coeffs(dN, u0N), cfg.r_fix)
-            if resN.converged || resN.residual <= 1.0e-6
+            if resN.converged || (N == 256 && resN.residual <= 1.0e-6)
                 push!(pd_ns, N)
                 push!(pd_vals, phase_mode_defect(dN, cfg, resN.c, cfg.r_fix))
             else
@@ -252,6 +303,11 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
         end
     end
     mesh_seconds = (time_ns() - t0) / 1.0e9
+
+    # acceptance gates: evaluate before writing artifacts so that missing
+    # required outcomes are recorded in failures.csv and reported in the
+    # summary (scripts/main.jl exits nonzero when the overall gate fails)
+    acc = acceptance_gates(discovery_all, branch_info, mesh_stats, mesh_seeds, fl)
 
     # ---- stage 4: artifacts ----
     t0 = time_ns()
@@ -269,9 +325,11 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
     # Timing accounting: internal_seconds is the run_smoke call only (it
     # includes first-call JIT compilation of the methods each stage invokes);
     # setup_seconds covers module include + `using` measured by the script;
-    # total_seconds = setup + internal so it is comparable with the process
-    # wall time. Interpreter startup/exit remains excluded; the supervisor's
-    # captured process wall time is the authoritative end-to-end figure.
+    # total_seconds = setup + internal. This is PARTIALLY INSTRUMENTED time:
+    # interpreter startup/exit, script-level statements outside the measured
+    # windows, and the summary/TOML construction after the io stage are not
+    # included or separately attributed; the supervisor-captured process
+    # wall time is the authoritative end-to-end figure.
     internal_seconds = (time_ns() - t_start) / 1.0e9
     total_seconds = setup_seconds + internal_seconds
 
@@ -360,13 +418,20 @@ function run_smoke(cfg::SHConfig; results_dir::String, setup_seconds::Float64=0.
         "io_seconds" => io_seconds,
         "internal_seconds" => internal_seconds,
         "total_seconds" => total_seconds,
-        "scope_note" => "stage timings include first-call JIT compilation of the methods they invoke; setup_seconds covers module load; total_seconds = setup + internal (interpreter startup/exit excluded); the supervisor-captured process wall time is authoritative",
+        "scope_note" => "partially instrumented time: stage sub-timings include first-call JIT compilation of the methods they invoke; total_seconds = setup_seconds (module include + using, script-measured) + internal_seconds (discovery/continuation/mesh/io stages); NOT included: interpreter startup/exit, script-level statements outside the measured windows, and the summary/TOML construction after the io stage; the supervisor-captured process wall time is the authoritative end-to-end figure",
     )
     summary["phase_mode"] = Dict{String,Any}(
         "Ns" => pd_ns,
         "JUprime_over_Uprime" => [fmt_val(v) for v in pd_vals],
         "note" => "relative phase-direction residual ||J U'||/||U'|| of the full-space collocation linearization: U' is an exact null vector of the continuous problem, but the undealiased collocation nonlinearity preserves only grid shifts, so the defect is a resolution-dependent aliasing quantity (dominated by the first nonlinear harmonic past the Nyquist limit), not an exact null; the full-space spectrum still contains exactly one near-zero eigenvalue",
-        "n256_note" => "at N = 256 the absolute Newton tolerance 1e-9 is below the measured roundoff floor (cond(J_even) ~ 4e6, stall at ||R|| ~ 1.3e-8), so that measurement point accepts ||R|| <= 1e-6 (pointwise residual ~1e-10); all other resolutions converge under the default tolerance",
+        "n256_note" => "the N = 256 solve stalls at ||R|| ~ 1.3e-8 (measured, reason no_descent; cause unconfirmed - a dimensionless eps*cond(J_even) ~ 9.3e-10 bound does not establish an absolute residual floor and no independent error analysis was performed); that measurement point ALONE accepts the residual-qualified stalled iterate at ||R|| <= 1e-6 (pointwise ~1e-10); all other resolutions converge under the default 1e-9 tolerance",
+    )
+    summary["acceptance"] = Dict{String,Any}(
+        "ok" => acc.ok,
+        "positive_discoveries_per_sweep" => acc.positive_discoveries_per_sweep,
+        "usable_continuation_with_fold" => acc.usable_continuation_with_fold,
+        "mesh_solves_converged" => acc.mesh_solves_converged,
+        "note" => "explicit gates: >= 1 new solution in every discovery sweep; branch status ok with a finite detected fold and >= 2 accepted points in each direction; all required mesh Newton solves (N = 32/64/128, every seed label) converged; scripts/main.jl exits nonzero when ok is false",
     )
     summary["failures"] = Dict{String,Any}("n_logged" => length(fl.rows))
     summary["scope"] = Dict{String,Any}(

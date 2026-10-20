@@ -267,14 +267,13 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
             d = Discretization(L_TEST, N)
             u0 = [1.2 * cos(1.0 * d.x[j]) for j in 1:N]
             res = newton_even(d, CFG, to_coeffs(d, u0), R_FIX)
-            # N=256: the absolute tolerance 1e-9 sits below the MEASURED
-            # roundoff floor of the dense solve (stall at ||R|| ~ 1.3e-8;
-            # cond(J_even) ~ 4e6 from the critical-mode vs Nyquist eigenvalue
-            # spread, so eps*cond*||R0|| ~ 1e-8). The stalled iterate is an
-            # excellent solution (pointwise residual ~1e-10), so this sweep
-            # accepts ||R|| <= 1e-6 for the defect measurement only; all
-            # other resolutions converge under the default tolerance.
-            solved = res.converged || res.residual <= 1.0e-6
+            # N = 256 ONLY: the solve stalls at ||R|| ~ 1.3e-8 (measured,
+            # reason no_descent; cause unconfirmed) under the default 1e-9
+            # tolerance, while the iterate is residual-qualified (pointwise
+            # ~1e-10). This sweep accepts the stalled iterate for the N=256
+            # measurement point ALONE; N = 32/64/128 must converge under
+            # the default tolerance.
+            solved = res.converged || (N == 256 && res.residual <= 1.0e-6)
             @test solved
             push!(defects, phase_mode_defect(d, CFG, res.c, R_FIX))
         end
@@ -528,6 +527,67 @@ const BRANCH_UP = continue_branch(D64, CFG, NEWTON_LARGE.c, R_FIX, 1; tag="test_
         accepted1, _, reason1 = classify_solution(D64, CFG, res1, Vector{Vector{Float64}}())
         @test !accepted1
         @test reason1 == "trivial"
+    end
+
+    @testset "acceptance_gates_negative_injection" begin
+        # good inputs -> all gates pass
+        good_disc = [(records=[(is_new=true,), (is_new=false,)],)]
+        good_branch = Dict{String,Any}("status" => "ok",
+                                       "folds_min_down" => -0.225,
+                                       "npts_dir1" => 7, "npts_dir-1" => 23)
+        good_mesh = Dict{String,Any}(
+            "seed_large" => Dict{String,Any}("all_newton_converged" => true),
+            "seed_small" => Dict{String,Any}("all_newton_converged" => true))
+        seeds2 = [("large", 1.2), ("small", 0.35)]
+        acc = acceptance_gates(good_disc, good_branch, good_mesh, seeds2)
+        @test acc.ok
+        @test acc.positive_discoveries_per_sweep
+        @test acc.usable_continuation_with_fold
+        @test acc.mesh_solves_converged
+        # missing discoveries (no new solution in a sweep) -> gate fails and
+        # is recorded
+        fl1 = FailLog()
+        acc2 = acceptance_gates([(records=[(is_new=false,),],), (records=Any[],)],
+                                good_branch, good_mesh, seeds2, fl1)
+        @test !acc2.ok
+        @test !acc2.positive_discoveries_per_sweep
+        @test acc2.usable_continuation_with_fold && acc2.mesh_solves_converged
+        @test count(row -> row[2] == "positive_discoveries_per_sweep", fl1.rows) == 1
+        # missing branch entirely -> gate fails
+        fl2 = FailLog()
+        acc3 = acceptance_gates(good_disc, Dict{String,Any}("status" => "skipped_no_start"),
+                                good_mesh, seeds2, fl2)
+        @test !acc3.ok && !acc3.usable_continuation_with_fold
+        # branch without a detected fold (NA) -> gate fails
+        acc4 = acceptance_gates(good_disc,
+                                Dict{String,Any}("status" => "ok",
+                                                 "folds_min_down" => "NA",
+                                                 "npts_dir1" => 7, "npts_dir-1" => 23),
+                                good_mesh, seeds2)
+        @test !acc4.usable_continuation_with_fold
+        # branch with too few accepted points -> gate fails
+        acc5 = acceptance_gates(good_disc,
+                                Dict{String,Any}("status" => "ok",
+                                                 "folds_min_down" => -0.2,
+                                                 "npts_dir1" => 1, "npts_dir-1" => 5),
+                                good_mesh, seeds2)
+        @test !acc5.usable_continuation_with_fold
+        @test count(row -> row[2] == "usable_continuation_with_fold", fl2.rows) == 1
+        # failed required mesh solve -> gate fails and is recorded
+        fl3 = FailLog()
+        bad_mesh = Dict{String,Any}(
+            "seed_large" => Dict{String,Any}("all_newton_converged" => false),
+            "seed_small" => Dict{String,Any}("all_newton_converged" => true))
+        acc6 = acceptance_gates(good_disc, good_branch, bad_mesh, seeds2, fl3)
+        @test !acc6.ok && !acc6.mesh_solves_converged
+        @test acc6.positive_discoveries_per_sweep && acc6.usable_continuation_with_fold
+        @test count(row -> row[2] == "mesh_solves_32_64_128", fl3.rows) == 1
+        # missing mesh label entirely -> gate fails
+        acc7 = acceptance_gates(good_disc, good_branch,
+                                Dict{String,Any}("seed_large" =>
+                                    Dict{String,Any}("all_newton_converged" => true)),
+                                seeds2)
+        @test !acc7.mesh_solves_converged
     end
 
     @testset "io_roundtrip" begin

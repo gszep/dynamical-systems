@@ -42,3 +42,10 @@ println("setup / discovery / continuation / mesh / io seconds: ",
 println("logged failure rows: ", summary["failures"]["n_logged"])
 println("distinct discoveries: r_-0p1 new = ", summary["discovery"]["r_-0p1"]["n_new"],
         ", r_-0p2 new = ", summary["discovery"]["r_-0p2"]["n_new"])
+
+if summary["acceptance"]["ok"]
+    println("acceptance gates: PASS (positive discoveries per sweep, usable continuation with fold, required mesh solves)")
+else
+    println("acceptance gates: FAIL (see [acceptance] in patterns_summary.toml and failures.csv)")
+    exit(1)
+end
